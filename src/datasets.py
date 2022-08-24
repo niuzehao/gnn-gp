@@ -280,7 +280,7 @@ def load_data(name, path=osp.join(osp.dirname(osp.abspath(__file__)), "..", "dat
         datasets = Reddit(osp.join(path,'Reddit'))
         data = datasets[0]
         data.num_classes = datasets.num_classes
-    else: print("Unsupported Dataset!")
+    else: raise Exception("Unsupported Dataset!")
     if normalize_features: norm = T.NormalizeFeatures(); data = norm(data)
     if transform is not None: data = transform(data)
     return data

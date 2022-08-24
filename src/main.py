@@ -11,15 +11,9 @@ def main():
     parser.add_argument('--data', required=True)
     parser.add_argument('--method', required=True)
     parser.add_argument('--action', required=True, choices=['gp', 'gnn', 'rbf'])
-    # parser.add_argument('--loss', required=True, choices=['mr', 'mse', 'mae'])
     parser.add_argument('--use_gpu', action='store_true')
     parser.add_argument('--runs', type=int, default=10)         # will only run multiple times when there is randomness.
     parser.add_argument('--train_size', type=int, default=0)
-
-    # parser.add_argument('--gp', action='store_true')          # Now main() will always run GNN and its GNNGP kernel
-    # parser.add_argument('--param_select', action='store_true')
-    # parser.add_argument('--rbf', action='store_true')           # For RBF benchmark tests
-    # parser.add_argument('--gcn', action='store_true')
 
     # GP arguments
     parser.add_argument('--max_L', type=int, default=1)
@@ -39,23 +33,18 @@ def main():
     dnames = ['Cora', 'CiteSeer', 'PubMed', 'chameleon', 'crocodile', 'squirrel', 'arxiv', 'Reddit']
     methods = ['GCN', 'GCN2', 'GIN', 'APPNP']
 
-    dname=''
-    for dname in dnames:
-        if dname.lower().startswith(args.data.lower()):
-            print("Dataset: %s" % dname)
-            dname = dname.lower()[:4]
+    for name in dnames:
+        if name.lower().startswith(args.data.lower()):
+            print("Dataset: %s" % name)
             break
 
-    if args.gp:
-        data = load_data(dname, transform=transition_matrix())
+    if args.action == 'gp':
+        data = load_data(name, transform=transition_matrix())
     else:
-        data = load_data(dname, transform=None)
+        data = load_data(name, transform=None)
 
-    # if args.loss.lower() == 'mse': loss += ['mse']
-    # if args.loss.lower() == 'mae': loss += ['mae']
-    # if args.loss.lower() == 'mr':  loss += ['mr'] 
-    # if args.loss.lower() == 'nll': loss += ['nll']
-    
+    torch.manual_seed(123)
+
     device = torch.device('cuda' if torch.cuda.is_available() & args.use_gpu else 'cpu')
 
     method = args.method.upper()
@@ -63,8 +52,6 @@ def main():
         raise Exception("Unsupported Method!")
 
     if args.train_size > 0:
-        if args.train_size < X.shape[1]:
-            raise Exception("train size must be greater than input dim!")
         data.train_mask = data.train_mask and (torch.rand(model.N, device=device)<args.train_size/torch.sum(data.train_mask))
         print("Random selected %d points from training set" % torch.sum(data.train_mask))
 
@@ -89,8 +76,7 @@ def main():
             model.computed = False
             model.get_kernel(method=method)
             epsilon = torch.logspace(-3, 1, 101, device=device)
-            error = model.get_error(epsilon, loss="mr")
-            result = error["mr"]
+            result = model.get_error(epsilon)
             i = torch.argmin(result["val"])
             result_runs[j] = torch.tensor([result["train"][i], result["val"][i], result["test"][i]])
             # print(model.get_message())
@@ -179,7 +165,7 @@ def main():
     #             model.get_kernel(method=method)
     #             for L in range(3):
     #                 model.add_layer(method=method)
-    #                 error = model.get_error(epsilon, loss="mr")
+    #                 error = model.get_error(epsilon)
     #                 message = model.get_message()
     #                 print(message)
     #                 i = torch.argmin(error['mr']['val'])
@@ -199,7 +185,7 @@ def main():
         else: model.K = model.K0
         model.computed = True
         epsilon = torch.logspace(-3, 1, 101, device=device)
-        error = model.get_error(epsilon, loss="mr")
+        error = model.get_error(epsilon)
         print(model.log)
 
 

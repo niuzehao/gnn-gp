@@ -73,9 +73,11 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, mask:Tensor, nugget:Union
     return fitted[0] if len(nugget) == 1 else fitted
 
 
-def error(fit:Tensor, y:Tensor, mask:Dict[str, Tensor], loss:Union[str,List[str]]):
+def error(fit:Tensor, y:Tensor, mask:Dict[str, Tensor]):
     """
     Compute the average loss for the dataset.
+    For classification problems, the loss function is misclassification rate.
+    For regression problems, the loss function is the mean square error.
 
     Args:
         fit (Tensor[float]): predicted value of the dataset.
@@ -83,26 +85,18 @@ def error(fit:Tensor, y:Tensor, mask:Dict[str, Tensor], loss:Union[str,List[str]
             For float type, a regression result will be generated.
             For int type, a classification result will be generated.
         mask (Dict[str, Tensor[bool]]): the training, validation and test mask.
-        loss (str or List[str]): loss metric. supported values:
-            "mse": mean squared error
-            "mae": mean absolute error
-            "mr": misclassification rate
-            "nll": negative log likelihood
     """
-    if isinstance(loss, str): loss = [loss]
-    func = {}
-    if 'mse' in loss: func['mse'] = lambda fit, y: (fit-y)**2
-    if 'mae' in loss: func['mae'] = lambda fit, y: torch.abs(fit-y)
-    if 'mr' in loss:  func['mr']  = lambda fit, y: (torch.argmax(fit, 1) != y).to(torch.float)
-    if 'nll' in loss: func['nll'] = lambda fit, y: -torch.log(fit[torch.arange(len(y)),y])
+    if y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
+        func = lambda fit, y: (torch.argmax(fit, 1) != y).to(torch.float)
+    else:
+        func = lambda fit, y: (fit-y)**2
     num_nugget = fit.shape[0]
-    err = {key:{} for key in func}
-    for key in func:
+    error = {}
+    for subset in mask:
+        error[subset] = torch.zeros(num_nugget)
+    for i in range(num_nugget):
+        loss = func(fit[i], y)
         for subset in mask:
-            err[key][subset] = torch.zeros(num_nugget)
-        for i in range(num_nugget):
-            y_err = func[key](fit[i], y)
-            for subset in mask:
-                err[key][subset][i] = torch.mean(y_err[mask[subset]])
-    return err
+            error[subset][i] = torch.mean(loss[mask[subset]])
+    return error
 

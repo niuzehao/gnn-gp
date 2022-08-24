@@ -104,11 +104,10 @@ class GNNGP(object):
         will also provide train, validation and test error results.
         """
         message = 'L=%d, sigma_b=%05.2f, sigma_w=%05.2f\n' % (self.L, self.sigma_b, self.sigma_w)
-        for key in self.error:
-            result = self.error[key]
-            i = torch.argmin(result["val"])
-            message += 'metric=%s, nugget=%05.4f, train=%05.4f, val=%05.4f, test=%05.4f\n' % \
-                    (key, self.nugget[i], result["train"][i], result["val"][i], result["test"][i])
+        result = self.error
+        i = torch.argmin(result["val"])
+        message += 'nugget=%05.4f, train=%05.4f, val=%05.4f, test=%05.4f\n' % \
+                   (self.nugget[i], result["train"][i], result["val"][i], result["test"][i])
         self.log += message
         return message
 
@@ -136,7 +135,7 @@ class GNNGP(object):
             self.fit = predict.fit(self.K, self.y, self.mask["train"], nugget)
         return self.fit
 
-    def get_error(self, nugget:Union[float,List[float]], loss:Union[str,List[str]], **params):
+    def get_error(self, nugget:Union[float,List[float]], **params):
         """
         Making predictions of target using training data, and then compute the
         train, validation and test error.
@@ -152,7 +151,7 @@ class GNNGP(object):
                 "nll": negative log likelihood
         """
         self.predict(nugget, **params)
-        self.error = predict.error(self.fit, self.y, self.mask, loss=loss)
+        self.error = predict.error(self.fit, self.y, self.mask)
         self.get_log()
         return self.error
 
