@@ -1,0 +1,9 @@
+__init__.py
+__pycache__/
+.vscode/
+data/
+fig/
+notebooks/
+test/
+test.py
+.DS_Store
