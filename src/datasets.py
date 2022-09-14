@@ -139,10 +139,10 @@ class RawWikipediaNetwork(InMemoryDataset):
             test_mask = torch.from_numpy(f["test_mask"]).to(torch.bool)
         else:
             torch.manual_seed(123)
-            mask = torch.randint_like(y, 5)
-            train_mask = mask < 3
-            val_mask = mask == 3
-            test_mask = mask == 4
+            mask = torch.randint_like(y, 25)
+            train_mask = mask < 12
+            val_mask = (mask >= 12) & (mask < 20)
+            test_mask = mask >= 20
         
         data = Data(x=x, edge_index=edge_index, y=y, train_mask=train_mask,
                     val_mask=val_mask, test_mask=test_mask)
