@@ -13,14 +13,14 @@ class GNNGP(object):
         sigma_b (float): bias variance of the Graph NN. (default: `0.1`)
         sigma_w (float): weight variance of the Graph NN. (default: `1.0`)
         Nystrom (bool): whether use Nystrom approximation in computation.
-        device (bool): which GPU in computation when available
+        device (int): which GPU in computation when available. 
     """
     def __init__(self, data, L:int=1, sigma_b:float=0.1, sigma_w:float=1.0,
                  Nystrom:bool=False, device:int=0, **params):
         self.set_hyper_param(L, sigma_b, sigma_w)
         self.log = ''
         self.Nystrom = Nystrom
-        self.device = torch.device('cuda:%s' % device if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda:%s' % device if device>=0 else 'cpu')
         self.N, self.X, self.y, self.A, self.mask = datasets.get_data(data.to(self.device))
     
     def set_hyper_param(self, L:int, sigma_b:float, sigma_w:float) -> None:
@@ -103,10 +103,10 @@ class GNNGP(object):
         Get message of model hyper-parameters. If the error metric is evaluated,
         will also provide train, validation and test error results.
         """
-        message = 'L=%d, sigma_b=%05.2f, sigma_w=%05.2f\n' % (self.L, self.sigma_b, self.sigma_w)
+        message = 'L: %d, sigma_b: %.2f, sigma_w: %.2f\n' % (self.L, self.sigma_b, self.sigma_w)
         result = self.error
         i = torch.argmin(result["val"])
-        message += 'nugget=%05.4f, train=%05.4f, val=%05.4f, test=%05.4f\n' % \
+        message += 'nugget: %.4f, train: %.4f, val: %.4f, test: %.4f\n' % \
                    (self.nugget[i], result["train"][i], result["val"][i], result["test"][i])
         self.log += message
         return message
@@ -138,17 +138,12 @@ class GNNGP(object):
     def get_error(self, nugget:Union[float,List[float]], **params):
         """
         Making predictions of target using training data, and then compute the
-        train, validation and test error.
-        For classification problems, the one-hot encoding is applied,
-        and the predicted class is the row-wise maximum.
+        train, validation and test error for each nugget given.
+        For classification problems, the loss function is misclassification rate.
+        For regression problems, the loss function is the mean square error.
 
         Args:
             nugget (float or List[float]): the nugget used in posterior inference.
-            loss (str or List[str]): loss metric. supported values:
-                "mse": mean squared error
-                "mae": mean absolute error
-                "mr": misclassification rate
-                "nll": negative log likelihood
         """
         self.predict(nugget, **params)
         self.error = predict.error(self.fit, self.y, self.mask)

@@ -66,8 +66,8 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, mask:Tensor, nugget:Union
     #     fitted[i] = K @ torch.linalg.solve(temp2 + eps*eye, temp1 @ yb)
     w, v = torch.linalg.eigh(temp2)
     d = torch.mean(torch.sum(Q**2, 1))
-    temp3 = K @ v
-    temp4 = v.T @ temp1 @ yb
+    temp2 = v.T @ temp1 @ yb
+    temp1 = K @ v
     for i, eps in enumerate(nugget):
         fitted[i] = temp1 @ torch.diag(1/(w+eps*d)) @ temp2
     return fitted[0] if len(nugget) == 1 else fitted

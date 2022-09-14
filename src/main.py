@@ -4,28 +4,31 @@ from gnngp import GNNGP
 from datasets import load_data, transition_matrix
 
 import argparse
+import time
 
 def main():
     parser = argparse.ArgumentParser(description='GNNGP arguments')
-    subparser = parser.add_subparsers()
     parser.add_argument('--data', required=True)
     parser.add_argument('--method', required=True)
     parser.add_argument('--action', required=True, choices=['gp', 'gnn', 'rbf'])
-    parser.add_argument('--use_gpu', action='store_true')
-    parser.add_argument('--runs', type=int, default=10)         # will only run multiple times when there is randomness.
+    parser.add_argument('--device', type=int, default=0)
+    parser.add_argument('--runs', type=int, default=10)
+
+    # preprocessing
+    parser.add_argument('--normalize_features', action='store_true')
     parser.add_argument('--train_size', type=int, default=0)
 
     # GP arguments
     parser.add_argument('--max_L', type=int, default=1)
     parser.add_argument('--nystrom', action='store_true')
-    parser.add_argument('--fraction', type=int, default=50)
+    parser.add_argument('--fraction', type=int, default=1)
 
     # GNN arguments
     parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--dim_hidden', type=int, default=256)
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=100)
 
     args = parser.parse_args()
     print(args)
@@ -38,54 +41,51 @@ def main():
             print("Dataset: %s" % name)
             break
 
-    if args.action == 'gp':
-        data = load_data(name, transform=transition_matrix())
-    else:
-        data = load_data(name, transform=None)
+    data = load_data(name, normalize_features=args.normalize_features,
+                     transform=transition_matrix() if args.action == 'gp' else None)
 
     torch.manual_seed(123)
 
-    device = torch.device('cuda' if torch.cuda.is_available() & args.use_gpu else 'cpu')
+    device = torch.device('cuda:%s' % args.device if args.device>=0 else 'cpu')
+    data = data.to(device)
+    print("Dataset loaded to %s" % device)
 
     method = args.method.upper()
     if not (method in methods):
         raise Exception("Unsupported Method!")
 
     if args.train_size > 0:
-        data.train_mask = data.train_mask and (torch.rand(model.N, device=device)<args.train_size/torch.sum(data.train_mask))
-        print("Random selected %d points from training set" % torch.sum(data.train_mask))
-
+        print("Random select %.0f percent of training points" % (100*args.train_size/torch.sum(data.train_mask)))
+    if args.nystrom:
+        print("Random select %.0f percent of landmark points" % (100/args.fraction))
+    
     if args.action == 'gp':
-        model = GNNGP(data, args.max_L, 0.0, 1.0, use_GPU=args.use_gpu, Nystrom=args.nystrom)
-        if args.nystrom:
-            model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
-        else:
-            args.runs = 1
-        X = model.X; A = model.A
-        X -= torch.mean(X, axis=0).view((1,-1))
         torch.manual_seed(123)
-
-        import time
         now = time.process_time()
         result_runs = torch.zeros((args.runs, 3))
+
+        model = GNNGP(data, args.max_L, 0.0, 1.0, device=args.device, Nystrom=args.nystrom)
 
         def result_format(result):
             return "train: %.4f, val: %.4f, test: %.4f" % (result[0], result[1], result[2])
 
         for j in range(args.runs):
+            if args.train_size > 0:
+                model.mask["train"] = data.train_mask & (torch.rand(model.N, device=device) < args.train_size/torch.sum(data.train_mask))
+            if args.nystrom:
+                model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
             model.computed = False
             model.get_kernel(method=method)
             epsilon = torch.logspace(-3, 1, 101, device=device)
             result = model.get_error(epsilon)
             i = torch.argmin(result["val"])
             result_runs[j] = torch.tensor([result["train"][i], result["val"][i], result["test"][i]])
-            # print(model.get_message())
             print("Run: %02d," % (j+1), result_format(result_runs[j]))
         if args.runs > 1:
-            print('---')
+            print('----')
             print("Mean:   ", result_format(torch.mean(result_runs, dim=0)))
             print("SD:     ", result_format(torch.std(result_runs, dim=0)))
-        print('---')
+        print('----')
         print("Time spent per run: %.4f" % ((time.process_time()-now)/args.runs))
 
     # if args.gp:
@@ -152,7 +152,7 @@ def main():
 
 
     # if args.gp and args.param_select:
-    #     model = GNNGP(data, args.max_L, 0.0, 1.0, use_GPU=args.use_gpu, Nystrom=args.nystrom)
+    #     model = GNNGP(data, args.max_L, 0.0, 1.0, device=args.device, Nystrom=args.nystrom)
     #     model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
     #     X = model.X; A = model.A
     #     X -= torch.mean(X, axis=0).view((1,-1))
@@ -176,7 +176,7 @@ def main():
 
 
     if args.action == 'rbf':
-        model = GNNGP(data, args.max_L, 0.0, 1.0, use_GPU=args.use_gpu, Nystrom=args.nystrom)
+        model = GNNGP(data, args.max_L, 0.0, 1.0, device=args.device, Nystrom=args.nystrom)
         model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
         X = model.X; A = model.A
         X -= torch.mean(X, axis=0).view((1,-1))
