@@ -40,7 +40,7 @@ def _init_kernel_Nystrom(X:Tensor, mask:Tensor, kernel:str, **params) -> Tensor:
         if torch.sum(mask) >= X.shape[1]: Q0 = X
         else: Q0 = _sqrt_Nystrom(X @ X[mask].T, mask)
     elif kernel == "rbf":
-        K0 = torch.exp(-params["gamma"]*torch.cdist(X, X[mask])**2)
+        K0 = torch.exp(-params["gamma"]*torch.cdist(X, X[mask], p=2)**2)
         Q0 = _sqrt_Nystrom(K0, mask)
     elif kernel == "laplacian":
         K0 = torch.exp(-params["gamma"]*torch.cdist(X, X[mask], p=1))
@@ -108,8 +108,7 @@ def _ExxT_ReLU(K:Tensor) -> Tensor:
     """
     s = torch.sqrt(torch.diag(K)).view((-1, 1))
     theta = torch.arccos(torch.clamp(K/s/s.T, -1, 1))
-    kern = torch.sin(theta)+(np.pi-theta)*torch.cos(theta)
-    ExxT = 0.5/np.pi*kern*s*s.T
+    ExxT = 0.5/np.pi*(torch.sin(theta)+(np.pi-theta)*torch.cos(theta))*s*s.T
     return ExxT
 
 
@@ -120,8 +119,7 @@ def _ExxT_ReLU_Nystrom(Q:Tensor, mask:Tensor) -> Tensor:
     """
     s = torch.sqrt(torch.sum(Q**2, 1)).view((-1, 1))
     theta = torch.arccos(torch.clamp(Q @ Q[mask].T/s/s[mask].T, -1, 1))
-    kern = torch.sin(theta)+(np.pi-theta)*torch.cos(theta)
-    ExxT = 0.5/np.pi*kern*s*s[mask].T
+    ExxT = 0.5/np.pi*(torch.sin(theta)+(np.pi-theta)*torch.cos(theta))*s*s[mask].T
     return _sqrt_Nystrom(ExxT, mask)
 
 
@@ -183,12 +181,12 @@ def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha
     """
     Compute the GCN2 kernel.
     """
-    K = sigma_b**2 + sigma_w**2 * A @ (A @ K0).T
+    K = sigma_w**2 * A @ (A @ K0).T
+    coef = (sigma_w*beta)**2+(1-beta)**2
     ExxT = torch.zeros_like(K)
     for j in range(L):
         ExxT[:] = _ExxT_ReLU(K)
-        K[:] = (1-alpha)**2 * A @ (A @ ((sigma_b*beta)**2 + ((sigma_w*beta)**2+(1-beta)**2) * ExxT)).T + \
-               (alpha)**2 * ((sigma_b*beta)**2 + ((sigma_w*beta)**2+(1-beta)**2) * K0)
+        K[:] = coef * ((1-alpha)**2 * A @ (A @ (ExxT)).T + (alpha)**2 * K0)
     return K
 
 
@@ -197,15 +195,13 @@ def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:floa
     Compute the result kernel by using `_GCNConv_ReLU` at each layer.
     """
     Na = torch.sum(mask); Ni = Q0.shape[1]
-    Q = torch.zeros((A.shape[0], Na+Ni+2), device=Q0.device)
-    Q[:,:Q0.shape[1]] = sigma_w * A @ Q0 ; Q[:,-1] = sigma_b
-    coef1 = np.sqrt((sigma_w*beta)**2+(1-beta)**2); coef2 = sigma_b*beta
+    Q = torch.zeros((A.shape[0], Na+Ni), device=Q0.device)
+    Q[:,:Q0.shape[1]] = sigma_w * A @ Q0
+    coef = np.sqrt((sigma_w*beta)**2+(1-beta)**2)
     for j in range(L):
         ExxT = _ExxT_ReLU_Nystrom(Q, mask)
-        Q[:,:Na] = (1-alpha)*coef1 * A @ ExxT
-        Q[:,Na:Na+Ni] = (alpha)*coef1 * Q0
-        Q[:,[Na+Ni]] = (1-alpha)*coef2 * A @ torch.ones_like(Q[:,[0]])
-        Q[:,[Na+Ni+1]] = (alpha)*coef2
+        Q[:,:Na] = (1-alpha)*coef * A @ ExxT
+        Q[:,Na:Na+Ni] = (alpha)*coef * Q0
     return Q
 
 

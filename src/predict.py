@@ -24,7 +24,7 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float,List[float]]=1
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
     else: yb = y[mb]
     fitted = torch.zeros((len(nugget), K.shape[0], *yb.shape[1:]), device=K.device)
-    eye = torch.mean(torch.diag(K))*torch.eye(torch.sum(mb), device=K.device)
+    # eye = torch.mean(torch.diag(K))*torch.eye(torch.sum(mb), device=K.device)
     # for i, eps in enumerate(nugget):
     #     fitted[i] = K[:,mb] @ torch.linalg.solve(K[mb][:,mb] + eps*eye, yb)
     w, v = torch.linalg.eigh(K[mb][:,mb])
@@ -58,16 +58,10 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, mask:Tensor, nugget:Union
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
     else: yb = y[mb]
     fitted = torch.zeros((len(nugget), Q.shape[0], *yb.shape[1:]), device=Q.device)
-    eye = torch.mean(torch.sum(Q**2, 1))*torch.eye(torch.sum(ma), device=Q.device)
-    K = Q @ Q[ma].T
-    temp1 = torch.linalg.lstsq(K[ma], K[mb].T, rcond=1e-4).solution
-    temp2 = temp1 @ K[mb]
-    # for i, eps in enumerate(nugget):
-    #     fitted[i] = K @ torch.linalg.solve(temp2 + eps*eye, temp1 @ yb)
-    w, v = torch.linalg.eigh(temp2)
+    w, v = torch.linalg.eigh(Q[mb].T @ Q[mb])
     d = torch.mean(torch.sum(Q**2, 1))
-    temp2 = v.T @ temp1 @ yb
-    temp1 = K @ v
+    temp1 = Q @ v
+    temp2 = v.T @ (Q[mb].T @ yb)
     for i, eps in enumerate(nugget):
         fitted[i] = temp1 @ torch.diag(1/(w+eps*d)) @ temp2
     return fitted[0] if len(nugget) == 1 else fitted
