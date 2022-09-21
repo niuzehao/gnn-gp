@@ -1,12 +1,13 @@
 import os.path as osp
 
 import torch
+from torch_geometric.transforms import BaseTransform
 import torch_geometric.transforms as T
 
 from torch_sparse import coalesce
 from torch_geometric.data import InMemoryDataset, download_url, extract_zip, Data
 
-class transition_matrix(object):
+class transition_matrix(BaseTransform):
     def __init__(self, self_loop_weight=1, normalization_in="sym"):
         self.self_loop_weight = self_loop_weight
         self.normalization = normalization_in
@@ -55,6 +56,18 @@ class transition_matrix(object):
 
         return data
 
+
+class Scale(BaseTransform):
+    def __init__(self, center=True, scale=False):
+        self.center = center
+        self.scale = scale
+
+    def __call__(self, data):
+        if self.center:
+            data.x -= torch.mean(data.x, dim=0, keepdim=True)
+        if self.scale:
+            data.x /= torch.sqrt(torch.sum(data.x**2, dim=0, keepdim=True))
+        return data
 
 class RawWikipediaNetwork(InMemoryDataset):
     """
@@ -157,7 +170,7 @@ class OGB_arxiv(InMemoryDataset):
     """
     The ogbn dataset from the `"Open Graph Benchmark: Datasets for
     Machine Learning on Graphs" <https://arxiv.org/abs/2005.00687>` paper.
-    ogbn-arxiv is a ogbn-arxiv is a paper citation network of arXiv papers.
+    ogbn-arxiv is a paper citation network of arXiv papers.
     Each node is an ArXiv paper and each directed edge indicates that one paper cites another one.
     Each paper comes with a 128-dimensional feature vector obtained by averaging the embeddings of words in its title and abstract.
     The embeddings of individual words are computed by running the WORD2VEC model.
@@ -165,9 +178,6 @@ class OGB_arxiv(InMemoryDataset):
 
     Args:
         root (string): Root directory where the dataset should be saved.
-        preprocess (string, optional): Pre-processes the original
-            dataset by adding structural features (:obj:`"metapath2vec",
-            :obj:`"TransE") to featureless nodes. (default: :obj:`None`)
         transform (callable, optional): A function/transform that takes in an
             :obj:`torch_geometric.data.HeteroData` object and returns a
             transformed version. The data object will be transformed before
@@ -249,8 +259,8 @@ class OGB_arxiv(InMemoryDataset):
         torch.save(self.collate([data]), self.processed_paths[0])
 
 
-def load_data(name, path=osp.join(osp.dirname(osp.abspath(__file__)), "..", "data"),
-              normalize_features=False, transform=None):
+def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
+              center=False, scale=False, transform=None):
     """
     Load specific datasets. Automatic downloads may occur upon first use.
 
@@ -258,10 +268,12 @@ def load_data(name, path=osp.join(osp.dirname(osp.abspath(__file__)), "..", "dat
         name: str, name for the dataset. possible values:
             "Cora", "CiteSeer", "PubMed": Planetoid dataset.
             "chameleon", "crocodile", "squirrel": Wikipedia dataset.
+            "arxiv": OGBN dataset.
+            "Reddit": reddit dataset.
         path: str, directory where the dataset should be saved.
-        normalize_features: bool, normalize each row to sum-up to one.
-        transform: `torch_geometric.transforms` or `T` functions, e.g.
-            `T.GDC()` will apply Graph Diffusion Convolution to the adjacency matrix.
+        center: bool, center each column to have mean 0.
+        scale: bool, scale each column to have standard deviation 1.
+        transform: `torch_geometric.transforms` to be applied in the end.
     """
     if name in ["Cora", "CiteSeer", "PubMed"]:
         from torch_geometric.datasets import Planetoid
@@ -281,7 +293,7 @@ def load_data(name, path=osp.join(osp.dirname(osp.abspath(__file__)), "..", "dat
         data = datasets[0]
         data.num_classes = datasets.num_classes
     else: raise Exception("Unsupported Dataset!")
-    if normalize_features: norm = T.NormalizeFeatures(); data = norm(data)
+    if center or scale: norm = Scale(center, scale); data = norm(data)
     if transform is not None: data = transform(data)
     return data
 
