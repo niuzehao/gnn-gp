@@ -24,9 +24,6 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float,List[float]]=1
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
     else: yb = y[mb]
     fitted = torch.zeros((len(nugget), K.shape[0], *yb.shape[1:]), device=K.device)
-    # eye = torch.mean(torch.diag(K))*torch.eye(torch.sum(mb), device=K.device)
-    # for i, eps in enumerate(nugget):
-    #     fitted[i] = K[:,mb] @ torch.linalg.solve(K[mb][:,mb] + eps*eye, yb)
     w, v = torch.linalg.eigh(K[mb][:,mb])
     d = torch.mean(torch.diag(K))
     temp1 = K[:,mb] @ v
@@ -36,7 +33,7 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float,List[float]]=1
     return fitted[0] if len(nugget) == 1 else fitted
 
 
-def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, mask:Tensor, nugget:Union[float,List[float]]=1e-2):
+def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nugget:Union[float,List[float]]=1e-2):
     """
     Making predictions of target based on training data.
     For classification problems, the one-hot encoding is applied,
@@ -45,14 +42,14 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, mask:Tensor, nugget:Union
     Args:
         Q (Tensor[float]): square root of kernel matrix.
         y (Tensor[float] or Tensor[int]): prediction target.
-            For float type, a regression result will be generated.
-            For int type, a classification result will be generated.
+            For float type, the task is regression.
+            For int type, the task is classification.
         train_mask (Tensor[bool]): mask for training points.
-        mask (Tensor[bool]): mask for landmark points.
+        landmark_mask (Tensor[bool]): mask for landmark points.
         nugget (float or Tensor[float]): the nugget used in posterior inference.
             (default: 1e-2 x mean diagonal element of QQ^T)
     """
-    ma = mask; mb = train_mask
+    ma = landmark_mask; mb = train_mask
     if isinstance(nugget, float): nugget = [nugget]
     if y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
@@ -67,30 +64,30 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, mask:Tensor, nugget:Union
     return fitted[0] if len(nugget) == 1 else fitted
 
 
-def error(fit:Tensor, y:Tensor, mask:Dict[str, Tensor]):
+def result(fit:Tensor, y:Tensor, masks:Dict[str, Tensor]):
     """
-    Compute the average loss for the dataset.
-    For classification problems, the loss function is misclassification rate.
-    For regression problems, the loss function is the mean square error.
+    Compute the accuracy for the dataset.
+    For classification problems, the result is mean classification accuracy.
+    For regression problems, the result is the R-squared statistic.
 
     Args:
         fit (Tensor[float]): predicted value of the dataset.
         y (Tensor[float] or Tensor[int]): prediction target.
-            For float type, a regression result will be generated.
-            For int type, a classification result will be generated.
-        mask (Dict[str, Tensor[bool]]): the training, validation and test mask.
+            For float type, the task is regression.
+            For int type, the task is classification.
+        masks (Dict[str, Tensor[bool]]): the training, validation, test and possibly landmark masks.
     """
     if y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
-        func = lambda fit, y: (torch.argmax(fit, 1) != y).to(torch.float)
+        func = lambda fit, y: torch.mean((torch.argmax(fit, 1) == y).to(torch.float))
     else:
-        func = lambda fit, y: (fit-y)**2
+        func = lambda fit, y: 1 - torch.sum((fit-y)**2) / torch.sum((y-torch.mean(y))**2)
     num_nugget = fit.shape[0]
-    error = {}
-    for subset in mask:
-        error[subset] = torch.zeros(num_nugget)
+    result = {}
+    for subset in masks:
+        result[subset] = torch.zeros(num_nugget)
     for i in range(num_nugget):
         loss = func(fit[i], y)
-        for subset in mask:
-            error[subset][i] = torch.mean(loss[mask[subset]])
-    return error
+        for subset, mask in masks.items():
+            result[subset][i] = func(fit[i][mask], y[mask])
+    return result
 

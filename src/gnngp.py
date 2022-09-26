@@ -18,7 +18,6 @@ class GNNGP(object):
     def __init__(self, data, L:int=1, sigma_b:float=0.1, sigma_w:float=1.0,
                  Nystrom:bool=False, device:int=0, **params):
         self.set_hyper_param(L, sigma_b, sigma_w)
-        self.log = ''
         self.Nystrom = Nystrom
         self.device = torch.device('cuda:%s' % device if device>=0 else 'cpu')
         self.N, self.X, self.y, self.A, self.mask = datasets.get_data(data.to(self.device))
@@ -98,25 +97,15 @@ class GNNGP(object):
             self.computed = True
         return self.Q if self.Nystrom else self.K
 
-    def get_message(self):
+    def get_summary(self):
         """
-        Get message of model hyper-parameters. If the error metric is evaluated,
-        will also provide train, validation and test error results.
+        Returns a dictionary of model hyper-parameters and best train, validation and test results.
         """
-        message = 'L: %d, sigma_b: %.2f, sigma_w: %.2f\n' % (self.L, self.sigma_b, self.sigma_w)
-        result = self.error
-        i = torch.argmin(result["val"])
-        message += 'nugget: %.4f, train: %.4f, val: %.4f, test: %.4f\n' % \
-                   (self.nugget[i], result["train"][i], result["val"][i], result["test"][i])
-        self.log += message
-        return message
-
-    def get_log(self):
-        """
-        Get all message of hyper-parameters and train, validation and test error.
-        """
-        self.get_message()
-        return self.log
+        summary = {"L": self.L, "sigma_b": self.sigma_b, "sigma_w": self.sigma_w}
+        result = self.result
+        i = torch.argmax(result["val"])
+        summary.update({"nugget": self.nugget[i], "train": result["train"][i], "val": result["val"][i], "test": result["test"][i]})
+        return summary
 
     def predict(self, nugget:Union[float,List[float]], **params):
         """
@@ -135,18 +124,17 @@ class GNNGP(object):
             self.fit = predict.fit(self.K, self.y, self.mask["train"], nugget)
         return self.fit
 
-    def get_error(self, nugget:Union[float,List[float]], **params):
+    def get_result(self, nugget:Union[float,List[float]], **params):
         """
         Making predictions of target using training data, and then compute the
-        train, validation and test error for each nugget given.
-        For classification problems, the loss function is misclassification rate.
-        For regression problems, the loss function is the mean square error.
+        train, validation and test result for each nugget given.
+        For classification problems, the result is mean classification accuracy.
+        For regression problems, the result is the R-squared statistic.
 
         Args:
             nugget (float or List[float]): the nugget used in posterior inference.
         """
         self.predict(nugget, **params)
-        self.error = predict.error(self.fit, self.y, self.mask)
-        self.get_log()
-        return self.error
+        self.result = predict.result(self.fit, self.y, self.mask)
+        return self.result
 

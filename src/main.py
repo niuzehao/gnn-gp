@@ -72,6 +72,7 @@ def main():
         else:
             print("Number of runs not given. Set to 10 runs.")
             args.runs = 10
+    print('----')
     
     def result_format(result):
         return "time: %.4f, train: %.4f, val: %.4f, test: %.4f" % (result[0], result[1], result[2], result[3])
@@ -88,8 +89,8 @@ def main():
                 model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
             model.computed = False
             model.get_kernel(method=method)
-            result = model.get_error(epsilon)
-            i = torch.argmin(result["val"])
+            result = model.get_result(epsilon)
+            i = torch.argmax(result["val"])
             result_runs[j] = torch.tensor([process_time()-now, result["train"][i], result["val"][i], result["test"][i]])
             now = process_time()
             print("Run: %02d," % (j+1), result_format(result_runs[j]))
@@ -102,7 +103,7 @@ def main():
     if args.action == 'rbf':
         from compute import _sqrt_Nystrom
         now = process_time()
-        result_runs = torch.full((args.runs, 4), torch.inf)
+        result_runs = torch.zeros((args.runs, 4))
         epsilon = torch.logspace(-3, 1, 101, device=device)
         model = GNNGP(data, 0, 0.0, 1.0, device=args.device, Nystrom=args.fraction > 0)
         model.computed = True
@@ -123,9 +124,9 @@ def main():
                     model.Q = _sqrt_Nystrom(K0, mask)
                 else:
                     model.K = K0
-                result = model.get_error(epsilon)
-                i = torch.argmin(result["val"])
-                if result["val"][i] < result_runs[j][1]:
+                result = model.get_result(epsilon)
+                i = torch.argmax(result["val"])
+                if result["val"][i] > result_runs[j][1]:
                     result_runs[j] = torch.tensor([0.0, result["train"][i], result["val"][i], result["test"][i]])
             result_runs[j][0] = process_time()-now
             now = process_time()

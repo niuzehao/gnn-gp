@@ -136,26 +136,24 @@ def main_gnn(args, device, data, method):
         preds = model(data).log_softmax(dim=-1)
         return F.nll_loss(preds[data.train_mask], data.y[data.train_mask])
     
-    def mr_loss(model, data):
-        preds = model(data).max(1)[1]
-        return 1 - preds.eq(data.y).to(torch.float)
+    def accuracy(preds, y):
+        return torch.mean((preds.argmax(dim=-1) == y).to(torch.float))
     
     def mse_loss(model, data):
         preds = model(data)
         return F.mse_loss(preds[data.train_mask,0], data.y[data.train_mask])
 
-    def mse_loss2(model, data):
-        preds = model(data)
-        return (preds[:,0] - data.y)**2
+    def rsquared(preds, y):
+        return 1 - torch.sum((preds[:,0]-y)**2) / torch.sum((y-torch.mean(y))**2)
 
     if data.y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
         out_channels = data.num_classes
         train_loss = nll_loss
-        test_loss = mr_loss
+        test_metric = accuracy
     else:
         out_channels = 1
         train_loss = mse_loss
-        test_loss = mse_loss2
+        test_metric = rsquared
 
     def train(model, data, optimizer):
         model.train()
@@ -168,12 +166,12 @@ def main_gnn(args, device, data, method):
     @torch.no_grad()
     def test(model, data):
         model.eval()
-        errs = []
-        loss = test_loss(model, data)
-        for _, mask in data('train_mask', 'val_mask', 'test_mask'):
-            err = torch.mean(loss[mask].to(torch.float)).item()
-            errs.append(err)
-        return errs
+        preds = model(data)
+        result = []
+        for mask in [data.train_mask, data.val_mask, data.test_mask]:
+            acc = test_metric(preds[mask], data.y[mask])
+            result.append(acc)
+        return result
     
     data = data.to(device)
     if method == "GCN":
@@ -200,20 +198,20 @@ def main_gnn(args, device, data, method):
     result_runs = torch.zeros((args.runs, 4))
 
     for j in range(args.runs):
-        best_val_err = test_err = torch.inf
+        best_val_acc = best_test_acc = 0
         for epoch in range(1, 1+args.epochs):
             loss = train(model, data, optimizer)
             result = test(model, data)
 
-            train_err, val_err, tmp_test_err = result
-            if val_err < best_val_err:
-                best_val_err = val_err
-                test_err = tmp_test_err
+            train_acc, val_acc, test_acc = result
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+                best_test_acc = test_acc
             if epoch % 10 == 0 and args.verbose:
                 print("Epoch: %03d, train: %.4f, val: %.4f, test: %.4f" % 
-                      (epoch, train_err, best_val_err, test_err))
+                      (epoch, train_acc, best_val_acc, best_test_acc))
 
-        result_runs[j] = torch.tensor([process_time()-now, train_err, best_val_err, test_err])
+        result_runs[j] = torch.tensor([process_time()-now, train_acc, best_val_acc, best_test_acc])
         now = process_time()
         print("Run: %02d," % (j+1), result_format(result_runs[j]))
         model.reset_parameters()
