@@ -16,9 +16,10 @@ def _sqrt_Nystrom(K:Tensor, mask:Tensor) -> Tensor:
     D, V = torch.linalg.eigh(K[mask])
     D_sqrt = torch.sqrt(torch.clamp(D, 0))
     D_sqrt_inv = D_sqrt / torch.clamp(D, D[-1] * 1e-4)
-    K[mask] = V * D_sqrt.view((1, -1))
-    K[~mask] = K[~mask] @ V * D_sqrt_inv.view((1, -1))
-    return K
+    Q = torch.zeros_like(K)
+    Q[mask] = V * D_sqrt.view((1, -1))
+    Q[~mask] = K[~mask] @ V * D_sqrt_inv.view((1, -1))
+    return Q
 
 
 def _init_kernel(X:Tensor, kernel:str, **params) -> Tensor:
@@ -82,7 +83,7 @@ def _get_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method
             "GCN2": GCN with initial residual connections and identity mapping.
             "GIN": graph isomorphism operator.
             "SAGE": graph sample and aggregate operator.
-            "SGConv": simple graph convolutional operator.
+            "SGC": simple graph convolutional operator.
     """
     if method == "GCN":
         return _GCN_kernel(K0, A, L, sigma_b, sigma_w)
@@ -92,8 +93,8 @@ def _get_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method
         return _GIN_kernel(K0, A, L, sigma_b, sigma_w, **params)
     elif method == "SAGE":
         return _SAGE_kernel(K0, A, L, sigma_b, sigma_w, **params)
-    elif method == "SGConv":
-        return _SGConv_kernel(K0, A, L, sigma_b, sigma_w, **params)
+    elif method == "SGC":
+        return _SGC_kernel(K0, A, L, sigma_b, sigma_w, **params)
     else:
         raise Exception("Unsupported layer type!")
 
@@ -114,7 +115,7 @@ def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
             "GCN2": GCN with initial residual connections and identity mapping.
             "GIN": graph isomorphism operator.
             "SAGE": graph sample and aggregate operator.
-            "SGConv": simple graph convolutional operator.
+            "SGC": simple graph convolutional operator.
     """
     if method == "GCN":
         return _GCN_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask)
@@ -124,8 +125,8 @@ def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
         return _GIN_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
     elif method == "SAGE":
         return _SAGE_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
-    elif method == "SGConv":
-        return _SGConv_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
+    elif method == "SGC":
+        return _SGC_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
     else:
         raise Exception("Unsupported layer type!")
 
@@ -227,21 +228,21 @@ def _SAGE_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:floa
     ExxT = torch.zeros((N, Na), device=Q0.device)
     Q = torch.zeros((N, 2*Na), device=Q0.device)
     Q[:,:Ni] = sigma_b * Q0; Q[:,Ni:2*Ni] = sigma_w * A @ Q0
-    for j in range(L+1):
+    for j in range(L):
         ExxT[:] = _ExxT_ReLU_Nystrom(Q, mask)
         Q[:,:Na] = sigma_b * ExxT
         Q[:,Na:] = sigma_w * A @ ExxT
     return Q
 
 
-def _SGConv_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float) -> Tensor:
+def _SGC_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float) -> Tensor:
     K = sigma_b**2 + sigma_w**2 * K0
     for j in range(L):
         K[:] = A @ (A @ K0).T
     return K
 
 
-def _SGConv_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor) -> Tensor:
+def _SGC_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
     Q = torch.zeros((N, Ni+1), device=Q0.device)
     Q[:,:Ni] = sigma_w * Q0 ; Q[:,-1] = sigma_b
