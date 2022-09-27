@@ -162,11 +162,10 @@ def _GCN_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float) -> Ten
 
 def _GCN_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
-    ExxT = torch.zeros((N, Na), device=Q0.device)
     Q = torch.zeros((N, Na+1), device=Q0.device)
     Q[:,:Q0.shape[1]] = sigma_w * A @ Q0 ; Q[:,-1] = sigma_b
     for j in range(L):
-        ExxT[:] = _ExxT_ReLU_Nystrom(Q, mask)
+        ExxT = _ExxT_ReLU_Nystrom(Q, mask)
         Q[:,:-1] = sigma_w * A @ ExxT ; Q[:,-1] = sigma_b
     return Q
 
@@ -183,12 +182,11 @@ def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha
 
 def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, alpha:float=0.1, beta:float=0.1) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
-    ExxT = torch.zeros((N, Na), device=Q0.device)
     Q = torch.zeros((N, Na+Ni), device=Q0.device)
     Q[:,:Ni] = sigma_w * A @ Q0
     coef = np.sqrt((sigma_w*beta)**2+(1-beta)**2)
     for j in range(L):
-        ExxT[:] = _ExxT_ReLU_Nystrom(Q, mask)
+        ExxT = _ExxT_ReLU_Nystrom(Q, mask)
         Q[:,:Na] = (1-alpha)*coef * A @ ExxT
         Q[:,Na:Na+Ni] = (alpha)*coef * Q0
     return Q
@@ -205,11 +203,10 @@ def _GIN_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, eps:fl
 
 def _GIN_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, eps:float=0.0) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
-    ExxT = torch.zeros((N, Na), device=Q0.device)
     Q = torch.zeros((N, Na+1), device=Q0.device)
     Q[:,:Ni] = sigma_w * A @ Q0 ; Q[:,-1] = sigma_b
     for j in range(L):
-        ExxT[:] = _ExxT_ReLU_Nystrom(Q, mask)
+        ExxT = _ExxT_ReLU_Nystrom(Q, mask)
         Q[:,:-1] = sigma_w * ExxT ; Q[:,-1] = sigma_b
     return Q
 
@@ -225,11 +222,10 @@ def _SAGE_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float) -> Te
 
 def _SAGE_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
-    ExxT = torch.zeros((N, Na), device=Q0.device)
     Q = torch.zeros((N, 2*Na), device=Q0.device)
     Q[:,:Ni] = sigma_b * Q0; Q[:,Ni:2*Ni] = sigma_w * A @ Q0
     for j in range(L):
-        ExxT[:] = _ExxT_ReLU_Nystrom(Q, mask)
+        ExxT = _ExxT_ReLU_Nystrom(Q, mask)
         Q[:,:Na] = sigma_b * ExxT
         Q[:,Na:] = sigma_w * A @ ExxT
     return Q
