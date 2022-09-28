@@ -55,10 +55,8 @@ def main():
     else:
         print("Method: RBF")
 
-    transform = transition_matrix() if args.action == 'gp' else None
-
     device = torch.device('cuda:%s' % args.device if args.device>=0 else 'cpu')
-    data = load_data(name, center=args.center, scale=args.scale, transform=transform)
+    data = load_data(name, center=args.center, scale=args.scale, transform=transition_matrix())
     data = data.to(device)
     print("Dataset loaded to %s" % device)
 
@@ -139,8 +137,13 @@ def main():
 
 
     if args.action == 'gnn':
-        from main_gnn import main_gnn
-        main_gnn(args, device, data, method)
+        args.batchnorm = name == 'arxiv'
+        if name != 'Reddit':
+            from main_gnn import main_gnn
+            main_gnn(args, device, data, method)
+        else:
+            from main_batch import main_batch
+            main_batch(args, device, data, method)
 
 if __name__ == "__main__":
     main()

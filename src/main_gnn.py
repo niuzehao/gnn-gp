@@ -4,24 +4,26 @@ from torch.nn import ModuleList, BatchNorm1d
 from torch_geometric.nn import GCNConv, GCN2Conv, GINConv, SAGEConv, SGConv
 
 class GCN(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(GCN, self).__init__()
+        self.batchnorm = batchnorm
+        self.dropout = dropout
         self.convs = ModuleList()
-        self.convs.append(GCNConv(in_channels, hidden_channels, cached=True))
+        self.convs.append(GCNConv(in_channels, hidden_channels, normalize=False))
         self.bns = ModuleList()
         self.bns.append(BatchNorm1d(hidden_channels))
         for _ in range(num_layers-2):
-            self.convs.append(GCNConv(hidden_channels, hidden_channels, cached=True))
+            self.convs.append(GCNConv(hidden_channels, hidden_channels, normalize=False))
             self.bns.append(BatchNorm1d(hidden_channels))
-        self.convs.append(GCNConv(hidden_channels, out_channels, cached=True))
+        self.convs.append(GCNConv(hidden_channels, out_channels, normalize=False))
 
     def forward(self, data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index, edge_weight)
-            x = self.bns[i](x)
+            if self.batchnorm: x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, edge_index, edge_weight)
         return x
 
@@ -33,24 +35,26 @@ class GCN(torch.nn.Module):
 
 
 class GCN2(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(GCN2, self).__init__()
+        self.batchnorm = batchnorm
+        self.dropout = dropout
         self.convs = ModuleList()
-        self.convs.append(GCNConv(in_channels, hidden_channels, cached=True))
+        self.convs.append(GCNConv(in_channels, hidden_channels, normalize=False))
         self.bns = ModuleList()
         self.bns.append(BatchNorm1d(hidden_channels))
         for _ in range(num_layers-2):
-            self.convs.append(GCN2Conv(hidden_channels, alpha=0.1, theta=0.1, cached=True))
+            self.convs.append(GCN2Conv(hidden_channels, alpha=0.1, theta=0.1, normalize=False))
             self.bns.append(BatchNorm1d(hidden_channels))
-        self.convs.append(GCNConv(hidden_channels, out_channels, cached=True))
+        self.convs.append(GCNConv(hidden_channels, out_channels, normalize=False))
 
     def forward(self, data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index, edge_weight)
-            x = self.bns[i](x)
+            if self.batchnorm: x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.convs[-1](x, edge_index, edge_weight)
         return x
 
@@ -62,19 +66,21 @@ class GCN2(torch.nn.Module):
 
 
 class GIN(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(GIN, self).__init__()
+        self.batchnorm = batchnorm
+        self.dropout = dropout
         from torch.nn import Sequential, Linear, BatchNorm1d, ReLU, Dropout
         self.nn = Sequential()
         self.nn.append(Linear(in_channels, hidden_channels))
-        self.nn.append(BatchNorm1d(hidden_channels))
+        if self.dropout: self.nn.append(BatchNorm1d(hidden_channels))
         self.nn.append(ReLU())
-        self.nn.append(Dropout())
+        self.nn.append(Dropout(p=self.dropout))
         for _ in range(num_layers-2):
             self.nn.append(Linear(hidden_channels, hidden_channels))
-            self.nn.append(BatchNorm1d(hidden_channels))
+            if self.dropout: self.nn.append(BatchNorm1d(hidden_channels))
             self.nn.append(ReLU())
-            self.nn.append(Dropout())
+            self.nn.append(Dropout(p=self.dropout))
         self.nn.append(Linear(hidden_channels, out_channels))
         self.conv = GINConv(nn=self.nn)
 
@@ -88,8 +94,10 @@ class GIN(torch.nn.Module):
 
 
 class SAGE(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(SAGE, self).__init__()
+        self.batchnorm = batchnorm
+        self.dropout = dropout
         self.convs = ModuleList()
         self.convs.append(SAGEConv(in_channels, hidden_channels))
         self.bns = ModuleList()
@@ -100,13 +108,13 @@ class SAGE(torch.nn.Module):
         self.convs.append(SAGEConv(hidden_channels, out_channels))
 
     def forward(self, data):
-        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
+        x, edge_index = data.x, data.edge_index
         for i, conv in enumerate(self.convs[:-1]):
-            x = conv(x, edge_index, edge_weight)
-            x = self.bns[i](x)
+            x = conv(x, edge_index)
+            if self.batchnorm: x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, training=self.training)
-        x = self.convs[-1](x, edge_index, edge_weight)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.convs[-1](x, edge_index)
         return x
 
     def reset_parameters(self):
@@ -117,9 +125,11 @@ class SAGE(torch.nn.Module):
 
 
 class SGC(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(SGC, self).__init__()
-        self.conv = SGConv(in_channels, out_channels, K=num_layers, cached=True)
+        self.batchnorm = batchnorm
+        self.dropout = dropout
+        self.conv = SGConv(in_channels, out_channels, K=num_layers, normalize=False)
 
     def forward(self, data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
@@ -172,18 +182,17 @@ def main_gnn(args, device, data, method):
             acc = test_metric(preds[mask], data.y[mask])
             result.append(acc)
         return result
-    
-    data = data.to(device)
+
     if method == "GCN":
-        model = GCN(data.num_features, args.dim_hidden, out_channels, args.num_layers).to(device)
+        model = GCN(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     elif method == "GCN2":
-        model = GCN2(data.num_features, args.dim_hidden, out_channels, args.num_layers).to(device)
+        model = GCN2(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     elif method == "GIN":
-        model = GIN(data.num_features, args.dim_hidden, out_channels, args.num_layers).to(device)
+        model = GIN(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     elif method == "SAGE":
-        model = SAGE(data.num_features, args.dim_hidden, out_channels, args.num_layers).to(device)
+        model = SAGE(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     elif method == "SGC":
-        model = SGC(data.num_features, args.dim_hidden, out_channels, args.num_layers).to(device)
+        model = SGC(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     else:
         raise Exception("Unsupported GNN architecture!")
 
@@ -201,15 +210,14 @@ def main_gnn(args, device, data, method):
         best_val_acc = best_test_acc = 0
         for epoch in range(1, 1+args.epochs):
             loss = train(model, data, optimizer)
-            result = test(model, data)
+            train_acc, val_acc, test_acc = test(model, data)
 
-            train_acc, val_acc, test_acc = result
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_test_acc = test_acc
             if epoch % 10 == 0 and args.verbose:
                 print("Epoch: %03d, train: %.4f, val: %.4f, test: %.4f" % 
-                      (epoch, train_acc, best_val_acc, best_test_acc))
+                      (epoch, train_acc, val_acc, test_acc))
 
         result_runs[j] = torch.tensor([process_time()-now, train_acc, best_val_acc, best_test_acc])
         now = process_time()
