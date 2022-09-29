@@ -7,7 +7,6 @@ def _sqrt_Nystrom(K:Tensor, mask:Tensor) -> Tensor:
     """
     Compute the Nystrom approx square root `Ny(K)` of a kernel matrix.
     A smooth function is used for near-zero eigenvalues.
-    The function is computed in-place.
 
     Args:
         K (Tensor[float]): the `N * Na` partial elements of the kernel matrix.
@@ -23,6 +22,22 @@ def _sqrt_Nystrom(K:Tensor, mask:Tensor) -> Tensor:
 
 
 def _init_kernel(X:Tensor, kernel:str, **params) -> Tensor:
+    """
+    Compute the initial kernel of input features `K0`.
+
+    Args:
+        kernel (str): specify the kernel function used (default: "linear"). supported values:
+            "linear": linear product kernel $k(x,y)=x^Ty$.
+            "rbf": radial basis function kernel $k(x,y)=\exp(-\gamma\Vert x-y\Vert_2^2)$.
+            "laplacian": laplacian kernel $k(x,y)=\exp(-\gamma\Vert x-y\Vert_1)$.
+            "arccos": arccos kernel $k(x,y)=1-\frac{1}{\pi}\arccos\frac{x^Ty}{\Vert x\Vert_2\Vert y\Vert_2}$.
+            "sigmoid": sigmoid kernel $k(x,y)=\tanh(\gamma x^Ty+c)$.
+            "polynomial": polynomial kernel $k(x,y)=(x^Ty+c)^d$.
+        **params (dict, optional): extra arguments to `kernel`. supported arguments:
+            gamma (float): to specify the "rbf", "laplacian" and "sigmoid" kernel.
+            c (float): to specify the "sigmoid" and "polynomial" kernel.
+            d (float): to specify the "polynomial" kernel.
+    """
     if kernel == "linear":
         K0 = X @ X.T
     elif kernel == "rbf":
@@ -41,6 +56,22 @@ def _init_kernel(X:Tensor, kernel:str, **params) -> Tensor:
 
 
 def _init_kernel_Nystrom(X:Tensor, mask:Tensor, kernel:str, **params) -> Tensor:
+    """
+    Compute Nystrom approx square root `Q0` of the initial kernel `K0`.
+
+    Args:
+        kernel (str): specify the kernel function used (default: "linear"). supported values:
+            "linear": linear product kernel $k(x,y)=x^Ty$.
+            "rbf": radial basis function kernel $k(x,y)=\exp(-\gamma\Vert x-y\Vert_2^2)$.
+            "laplacian": laplacian kernel $k(x,y)=\exp(-\gamma\Vert x-y\Vert_1)$.
+            "arccos": arccos kernel $k(x,y)=1-\frac{1}{\pi}\arccos\frac{x^Ty}{\Vert x\Vert_2\Vert y\Vert_2}$.
+            "sigmoid": sigmoid kernel $k(x,y)=\tanh(\gamma x^Ty+c)$.
+            "polynomial": polynomial kernel $k(x,y)=(x^Ty+c)^d$.
+        **params (dict, optional): extra arguments to `kernel`. supported arguments:
+            gamma (float): to specify the "rbf", "laplacian" and "sigmoid" kernel.
+            c (float): to specify the "sigmoid" and "polynomial" kernel.
+            d (float): to specify the "polynomial" kernel.
+    """
     if kernel == "linear":
         if torch.sum(mask) >= X.shape[1]: Q0 = X
         else: Q0 = _sqrt_Nystrom(X @ X[mask].T, mask)
@@ -51,10 +82,9 @@ def _init_kernel_Nystrom(X:Tensor, mask:Tensor, kernel:str, **params) -> Tensor:
         K0 = torch.exp(-params["gamma"]*torch.cdist(X, X[mask], p=1))
         Q0 = _sqrt_Nystrom(K0, mask)
     elif kernel == "arccos":
-        X_scale = X - torch.mean(X, dim=0, keepdim=True)
-        X_scale /= torch.sqrt(torch.sum(X_scale**2, dim=0, keepdim=True))
-        K0 = torch.clamp(X_scale @ X_scale[mask].T, -1, 1)
-        K0 = 1 - torch.arccos(K0)/np.pi
+        Q0 = X - torch.mean(X, dim=0, keepdim=True)
+        Q0 /= torch.sqrt(torch.sum(Q0**2, dim=0, keepdim=True))
+        K0 = 1 - torch.arccos(torch.clamp(Q0 @ Q0[mask].T, -1, 1))/np.pi
         Q0 = _sqrt_Nystrom(K0, mask)
     elif kernel == "sigmoid":
         K0 = torch.tanh(params["gamma"] * X @ X[mask].T + params["c"])
@@ -69,21 +99,20 @@ def _init_kernel_Nystrom(X:Tensor, mask:Tensor, kernel:str, **params) -> Tensor:
 
 def _get_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method:str, **params) -> Tensor:
     """
-    Compute the GNNGP kernel `K` for a specific architecture.
+    Compute the GNNGP Kernel `K`.
 
     Args:
-        K0 (Tensor[float]): the `N * N` square root of the initial kernel matrix.
+        K0 (Tensor[float]): the `N * N` initial kernel matrix.
         A (Tensor[float]): the `N * N` adjacency matrix.
         L (int): number of layers.
-        sigma_b (float): bias variance of the current layer.
-        sigma_w (float): weight variance of the current layer.
-        mask (Tensor[bool]): the mask for landmark points.
+        sigma_b (float): bias variance of the Graph NN.
+        sigma_w (float): weight variance of the Graph NN.
         method (str): specify the architecture used. supported values:
             "GCN": graph convolutional network.
-            "GCN2": GCN with initial residual connections and identity mapping.
-            "GIN": graph isomorphism operator.
-            "SAGE": graph sample and aggregate operator.
-            "SGC": simple graph convolutional operator.
+            "GCN2": GCN with initial residual connections and identity mapping (GCNII).
+            "GIN": graph isomorphism network.
+            "SAGE": graph sample and aggregate network.
+            "SGC": simple graph convolutional network.
     """
     if method == "GCN":
         return _GCN_kernel(K0, A, L, sigma_b, sigma_w)
@@ -101,21 +130,21 @@ def _get_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method
 
 def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, method:str, **params) -> Tensor:
     """
-    Compute the Nystrom approx square root `Q` of the GNNGP kernel `K` for a specific architecture.
+    Compute the Nystrom approx square root `Q` of the GNNGP kernel `K`.
 
     Args:
         Q0 (Tensor[float]): the `N * Na` square root of the initial kernel matrix.
         A (Tensor[float]): the `N * N` adjacency matrix.
         L (int): number of layers.
-        sigma_b (float): bias variance of the current layer.
-        sigma_w (float): weight variance of the current layer.
+        sigma_b (float): bias variance of the Graph NN.
+        sigma_w (float): weight variance of the Graph NN.
         mask (Tensor[bool]): the mask for landmark points.
         method (str): specify the architecture used. supported values:
             "GCN": graph convolutional network.
-            "GCN2": GCN with initial residual connections and identity mapping.
-            "GIN": graph isomorphism operator.
-            "SAGE": graph sample and aggregate operator.
-            "SGC": simple graph convolutional operator.
+            "GCN2": GCN with initial residual connections and identity mapping (GCNII).
+            "GIN": graph isomorphism network.
+            "SAGE": graph sample and aggregate network.
+            "SGC": simple graph convolutional network.
     """
     if method == "GCN":
         return _GCN_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask)
@@ -133,7 +162,7 @@ def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
 
 def _ExxT_ReLU(K:Tensor) -> Tensor:
     """
-    Compute `g(K)` for ReLU activation that has a closed-form result.
+    Compute `g(K)` for ReLU activation using the closed-form integral result.
     """
     s = torch.sqrt(torch.diag(K)).view((-1, 1))
     theta = torch.arccos(torch.clamp(K/s/s.T, -1, 1))
@@ -143,7 +172,7 @@ def _ExxT_ReLU(K:Tensor) -> Tensor:
 
 def _ExxT_ReLU_Nystrom(Q:Tensor, mask:Tensor) -> Tensor:
     """
-    Compute `Ny(g(QQ^T))` for ReLU activation that has a closed-form result.
+    Compute `Ny(g(QQ^T))` for ReLU activation using the closed-form integral result.
     """
     s = torch.sqrt(torch.sum(Q**2, 1)).view((-1, 1))
     theta = torch.arccos(torch.clamp(Q @ Q[mask].T/s/s[mask].T, -1, 1))
@@ -170,23 +199,25 @@ def _GCN_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
     return Q
 
 
-def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha:float=0.1, beta:float=0.1) -> Tensor:
+def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha:float=0.1, theta:float=0.1) -> Tensor:
     ExxT = torch.zeros_like(K0)
     K = sigma_w**2 * A @ (A @ K0).T
-    coef = (sigma_w*beta)**2+(1-beta)**2
     for j in range(L):
         ExxT[:] = _ExxT_ReLU(K)
+        beta = np.log(theta/(j+1)+1)
+        coef = (sigma_w*beta)**2+(1-beta)**2
         K[:] = coef * ((1-alpha)**2 * A @ (A @ (ExxT)).T + (alpha)**2 * K0)
     return K
 
 
-def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, alpha:float=0.1, beta:float=0.1) -> Tensor:
+def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, alpha:float=0.1, theta:float=0.1) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
     Q = torch.zeros((N, Na+Ni), device=Q0.device)
     Q[:,:Ni] = sigma_w * A @ Q0
-    coef = np.sqrt((sigma_w*beta)**2+(1-beta)**2)
     for j in range(L):
         ExxT = _ExxT_ReLU_Nystrom(Q, mask)
+        beta = np.log(theta/(j+1)+1)
+        coef = np.sqrt((sigma_w*beta)**2+(1-beta)**2)
         Q[:,:Na] = (1-alpha)*coef * A @ ExxT
         Q[:,Na:Na+Ni] = (alpha)*coef * Q0
     return Q

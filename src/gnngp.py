@@ -5,10 +5,10 @@ import compute, predict, datasets
 
 class GNNGP(object):
     """
-    Build an infinite-width Graph Neural Network model, and compute its Gaussian Process Kernel.
+    Build an infinite-width Graph Neural Network, and compute its Gaussian Process Kernel.
 
     Args:
-        data (torch_geometric.datasets): a graph object.
+        data (torch_geometric.datasets): a graph dataset.
         L (int): number of hidden layers of the Graph NN. (default: `1`)
         sigma_b (float): bias variance of the Graph NN. (default: `0.1`)
         sigma_w (float): weight variance of the Graph NN. (default: `1.0`)
@@ -41,7 +41,7 @@ class GNNGP(object):
         Set the Gaussian Process Kernel of the initial input features.
 
         Args:
-            kernel (string): (default: "linear") supported values:
+            kernel (str): specify the kernel function used (default: "linear"). supported values:
                 "linear": linear product kernel $k(x,y)=x^Ty$.
                 "rbf": radial basis function kernel $k(x,y)=\exp(-\gamma\Vert x-y\Vert_2^2)$.
                 "laplacian": laplacian kernel $k(x,y)=\exp(-\gamma\Vert x-y\Vert_1)$.
@@ -58,33 +58,17 @@ class GNNGP(object):
         else:
             self.K0 = compute._init_kernel(self.X, kernel, **params)
 
-    def add_layer(self, method:str="GCN", **params) -> None:
-        """
-        Add one more layer to the infinite-width Graph Neural Network, and recompute the Gaussian Process Kernel.
-
-        Args:
-            method (string): (default: "GCN") supported values:
-                "GCN": Graph Convolutional Network.
-            Nystrom (bool): whether use a Nystrom in the computation.
-            **params (dict, optional): extra arguments to `method`. supported arguments:
-                mask (Tensor): the mask for landmark points in Nystrom approximation.
-        """
-        if not self.computed:
-            raise Exception("Must compute kernel before add another layer!")
-        if self.Nystrom:
-            self.Q = compute._add_layer_Nystrom(self.Q, self.A, self.sigma_b, self.sigma_w, self.mask["landmark"], method, **params)
-        else:
-            self.K = compute._add_layer(self.K, self.A, self.sigma_b, self.sigma_w, method, **params)
-        self.L += 1
-
     def get_kernel(self, method:str="GCN", **params) -> Tensor:
         """
-        Get Gaussian Process covariance or recompute a new one.
+        Get Gaussian Process Kernel of the infinite-width Graph Neural Network.
 
         Args:
-            method (string): (default: "GCN") supported values:
-                "GCN": Graph Convolutional Network.
-            Nystrom (bool): whether use a Nystrom in the computation.
+            method (str): specify the architecture used (default: "GCN"). supported values:
+                "GCN": graph convolutional network.
+                "GCN2": GCN with initial residual connections and identity mapping (GCNII).
+                "GIN": graph isomorphism network.
+                "SAGE": graph sample and aggregate network.
+                "SGC": simple graph convolutional network.
             **params (dict, optional): extra arguments to `method`. supported arguments:
                 mask (Tensor): the mask for landmark points in Nystrom approximation.
         """
@@ -109,9 +93,9 @@ class GNNGP(object):
 
     def predict(self, nugget:Union[float,List[float]], **params):
         """
-        Making predictions of target using training data.
+        Making predictions using training data, for each given nugget.
         For classification problems, the one-hot encoding is applied,
-        and the predicted class is the row-wise maximum.
+        and the prediction target will be the classification probabilities.
 
         Args:
             nugget (float or List[float]): the nugget used in posterior inference.
@@ -126,8 +110,8 @@ class GNNGP(object):
 
     def get_result(self, nugget:Union[float,List[float]], **params):
         """
-        Making predictions of target using training data, and then compute the
-        train, validation and test result for each nugget given.
+        Making predictions using training data, and then compute the
+        train, validation and test result for each given nugget.
         For classification problems, the result is mean classification accuracy.
         For regression problems, the result is the R-squared statistic.
 
