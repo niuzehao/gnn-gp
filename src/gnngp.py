@@ -94,8 +94,8 @@ class GNNGP(object):
     def predict(self, nugget:Union[float,List[float]], **params):
         """
         Making predictions using training data, for each given nugget.
-        For classification problems, the one-hot encoding is applied,
-        and the prediction target will be the classification probabilities.
+        For classification problems, the prediction target is classification probability.
+        For regression problems, the prediction target is output value.
 
         Args:
             nugget (float or List[float]): the nugget used in posterior inference.
@@ -112,8 +112,8 @@ class GNNGP(object):
         """
         Making predictions using training data, and then compute the
         train, validation and test result for each given nugget.
-        For classification problems, the result is mean classification accuracy.
-        For regression problems, the result is the R-squared statistic.
+        For classification problems, the metric is mean classification accuracy.
+        For regression problems, the metric is the R-squared statistic.
 
         Args:
             nugget (float or List[float]): the nugget used in posterior inference.
