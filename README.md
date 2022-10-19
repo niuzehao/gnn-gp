@@ -1,35 +1,59 @@
 # GNNGP: Graphical Neural Network as Gaussian Process
+This repository contains pytorch open source implementation of our ICLR2023 paper:
 
-This repository contains pytorch implementation of GNNGP methods, as well as several test functions aiming for performance study.
+[Graph Neural Network-Inspired Kernels for Gaussian Processes in Semi-Supervised Learning](https://openreview.net/pdf?id=flap0Bo6TK_)
 
 # Usage
+To reproduce published results, use following shell scripts:
 
+## Table 4: Performance of GCNGP, in comparison with GCN and typical GP kernels
+    sh table4.sh
+The time result is also used in Figure 1 and Figure 2.
+
+## Table 5: Performance comparison between GNNs and the corresponding GP kernels
+    sh table5.sh
+
+## Figure 3: Performance of GNNs and GNNGPs as depth L increases
+    sh figure3.sh
+
+## Figure 4: Performance of GCNGP-X as number of landmark nodes increases
+    sh figure4.sh
+
+## Fine-Tuning with command line arguments
 The `src/main.py` runs automatic experiments with following command line arguments:
 
-## Requirements
+### Model options
+    --data      str     Possible values: 'Cora', 'CiteSeer', 'PubMed', 'chameleon', 'crocodile', 'squirrel', 'arxiv', 'Reddit'.
+    --method    str     Possible values: 'GCN', 'GCN2', 'GIN', 'SAGE'.
+    --action    str     Possible values: 'gnn', 'gp', 'rbf'.
+    --device    int     Default is `0`. (Running on `cuda:0`).
+    --runs      int     Default is `10` for random results and 1 for deterministic results.
+    --verbose   bool    Default is `False`.
 
-`python >= 3.5.0`
-`pytorch >= 1.9.0`
+###  Preprocessing
+    --center    bool    Default is `False`.
+    --scale     bool    Default is `False`.
 
-## Datasets
+### GP arguments
+    --num_layers    int     Default is `2`.
+    --sigma_b       float   Default is `0.0`.
+    --sigma_w       float   Default is `1.0`.
+    --fraction      int     Default is `0`.
 
-Available datasets in the repository include the Wikipedia Article Networks and the Planetoid dataset.
+### GNN arguments
+    --num_layers    int     Default is `2`.
+    --dim_hidden    int     Default is `256`.
+    --dropout       float   Default is `0.5`.
+    --lr            float   Default is `0.01`.
+    --epochs        int     Default is `100`.
 
-Upon first usage, an automatic download of the raw dataset may occur.
+# Requirements
+The code is implemented in
 
-## Methods
+    Python 3.10.4 as distributed with Ubuntu 22.04 LTS
+    Pytorch 1.11.0
+    PyTorch Geometric 2.1.0
+    CUDA 11.3
 
-## Metrics
-
-## Logs
-
-The parameter settings and runtime info will be logged. This include the following:
-
-```
-1. Hyperparameter settings - every hyperparameter used in the experiment.
-2. Computation time - the time used for computation, in seconds.
-3. Error metric - the error of the predicted result.
-```
-
-# References
-
+# License
+Apache License Version 2.0 (APLv2).

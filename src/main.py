@@ -20,13 +20,12 @@ def main():
     parser.add_argument('--scale', action='store_true')
 
     # GP arguments
-    parser.add_argument('--L', type=int, default=1)
+    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--sigma_b', type=float, default=0.0)
     parser.add_argument('--sigma_w', type=float, default=1.0)
     parser.add_argument('--fraction', type=int, default=0)
 
     # GNN arguments
-    parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--dim_hidden', type=int, default=256)
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.01)
@@ -80,7 +79,8 @@ def main():
         result_runs = torch.zeros((args.runs, 4))
         epsilon = torch.logspace(-3, 1, 101, device=device)
 
-        model = GNNGP(data, args.L, args.sigma_b, args.sigma_w, device=args.device, Nystrom=args.fraction > 0)
+        L = args.num_layers-1
+        model = GNNGP(data, L, args.sigma_b, args.sigma_w, device=args.device, Nystrom=args.fraction > 0)
 
         for j in range(args.runs):
             if args.fraction > 0:
