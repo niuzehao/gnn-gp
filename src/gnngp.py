@@ -81,44 +81,39 @@ class GNNGP(object):
             self.computed = True
         return self.Q if self.Nystrom else self.K
 
+    def predict(self, nugget:Union[float, Tensor]=1e-2, **params):
+        """
+        For each nugget, make predictions using training data, 
+        and then compute the train, validation and test result.
+        
+        +----------------+----------------------------+------------------------------+
+        | task           | prediction target          | result metric                |
+        +----------------+----------------------------+------------------------------+
+        | classification | classification probability | mean classification accuracy |
+        | regression     | output value               | R-squared statistic          |
+        +----------------+----------------------------+------------------------------+
+
+        Args:
+            nugget (float or Tensor): the nugget used in posterior inference.
+        """
+        self.get_kernel(**params)
+        if isinstance(nugget, float): nugget = torch.tensor([nugget])
+        if self.Nystrom:
+            self.fit = predict.fit_Nystrom(self.Q, self.y, self.mask["train"], self.mask["landmark"], nugget)
+        else:
+            self.fit = predict.fit(self.K, self.y, self.mask["train"], nugget)
+        self.result = predict.result(self.fit, self.y, self.mask)
+        self.nugget = nugget
+        return self.fit
+
     def get_summary(self):
         """
         Returns a dictionary of model hyper-parameters and best train, validation and test results.
         """
         summary = {"L": self.L, "sigma_b": self.sigma_b, "sigma_w": self.sigma_w}
-        result = self.result
-        i = torch.argmax(result["val"])
-        summary.update({"nugget": self.nugget[i], "train": result["train"][i], "val": result["val"][i], "test": result["test"][i]})
+        if hasattr(self, 'result'):
+            result = self.result
+            i = torch.argmax(result["val"])
+            summary.update({"nugget": self.nugget[i], "train": result["train"][i], "val": result["val"][i], "test": result["test"][i]})
         return summary
-
-    def predict(self, nugget:Union[float,List[float]], **params):
-        """
-        Making predictions using training data, for each given nugget.
-        For classification problems, the prediction target is classification probability.
-        For regression problems, the prediction target is output value.
-
-        Args:
-            nugget (float or List[float]): the nugget used in posterior inference.
-        """
-        self.nugget = nugget
-        self.get_kernel(**params)
-        if self.Nystrom:
-            self.fit = predict.fit_Nystrom(self.Q, self.y, self.mask["train"], self.mask["landmark"], nugget)
-        else:
-            self.fit = predict.fit(self.K, self.y, self.mask["train"], nugget)
-        return self.fit
-
-    def get_result(self, nugget:Union[float,List[float]], **params):
-        """
-        Making predictions using training data, and then compute the
-        train, validation and test result for each given nugget.
-        For classification problems, the metric is mean classification accuracy.
-        For regression problems, the metric is the R-squared statistic.
-
-        Args:
-            nugget (float or List[float]): the nugget used in posterior inference.
-        """
-        self.predict(nugget, **params)
-        self.result = predict.result(self.fit, self.y, self.mask)
-        return self.result
 

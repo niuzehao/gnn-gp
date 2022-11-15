@@ -1,11 +1,11 @@
 import torch
 from torch import Tensor
-from typing import Callable, Dict, List, Union, Optional
+from typing import Dict, Union
 
 
-def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float,List[float]]=1e-2):
+def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float, Tensor]=1e-2):
     """
-    Making predictions using training data, for each given nugget.
+    Make predictions using training data, for each given nugget.
     For classification problems, the prediction target is classification probability.
     For regression problems, the prediction target is output value.
 
@@ -19,7 +19,7 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float,List[float]]=1
             (default: 1e-2 x mean diagonal element of K)
     """
     mb = train_mask
-    if isinstance(nugget, float): nugget = [nugget]
+    if isinstance(nugget, float): nugget = torch.tensor([nugget])
     if y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
     else: yb = y[mb]
@@ -33,9 +33,9 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float,List[float]]=1
     return fitted[0] if len(nugget) == 1 else fitted
 
 
-def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nugget:Union[float,List[float]]=1e-2):
+def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nugget:Union[float, Tensor]=1e-2):
     """
-    Making predictions using training data, for each given nugget.
+    Make predictions using training data, for each given nugget.
     For classification problems, the prediction target is classification probability.
     For regression problems, the prediction target is output value.
 
@@ -50,7 +50,7 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nug
             (default: 1e-2 x mean diagonal element of QQ^T)
     """
     ma = landmark_mask; mb = train_mask
-    if isinstance(nugget, float): nugget = [nugget]
+    if isinstance(nugget, float): nugget = torch.tensor([nugget])
     if y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
     else: yb = y[mb]

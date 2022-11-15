@@ -43,7 +43,7 @@ def main():
             print("Dataset: %s" % name)
             break
     else:
-        raise Exception("Unsupported data! Possible values:", ' '.join(dnames))
+        raise Exception("Unsupported data! Possible values: " + ' '.join(dnames))
 
     if args.action != 'rbf':
         for method in methods:
@@ -51,7 +51,7 @@ def main():
                 print("Method: %s%s" % (method, '-GP' if args.action == 'gp' else ''))
                 break
         else:
-            raise Exception("Unsupported method! Possible values:", ' '.join(method))
+            raise Exception("Unsupported method! Possible values: " + ' '.join(methods))
     else:
         print("Method: RBF")
 
@@ -88,9 +88,9 @@ def main():
                 model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
             model.computed = False
             model.get_kernel(method=method)
-            result = model.get_result(epsilon)
-            i = torch.argmax(result["val"])
-            result_runs[j] = torch.tensor([process_time()-now, result["train"][i], result["val"][i], result["test"][i]])
+            model.predict(epsilon)
+            summary = model.get_summary()
+            result_runs[j] = torch.tensor([process_time()-now, summary["train"], summary["val"], summary["test"]])
             now = process_time()
             print("Run: %02d," % (j+1), result_format(result_runs[j]))
         if args.runs > 1:
@@ -123,10 +123,10 @@ def main():
                     model.Q = _sqrt_Nystrom(K0, mask)
                 else:
                     model.K = K0
-                result = model.get_result(epsilon)
-                i = torch.argmax(result["val"])
-                if result["val"][i] > result_runs[j][1]:
-                    result_runs[j] = torch.tensor([0.0, result["train"][i], result["val"][i], result["test"][i]])
+                model.predict(epsilon)
+                summary = model.get_summary()
+                if summary["val"] > result_runs[j][2]:
+                    result_runs[j] = torch.tensor([0.0, summary["train"], summary["val"], summary["test"]])
             result_runs[j][0] = process_time()-now
             now = process_time()
             print("Run: %02d," % (j+1), result_format(result_runs[j]))
