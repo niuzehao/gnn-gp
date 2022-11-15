@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
-from torch.nn import ModuleList, BatchNorm1d
+from torch.nn import Module, ModuleList, BatchNorm1d
 from torch_geometric.nn import GCNConv, GCN2Conv, GINConv, SAGEConv, SGConv
 
-class GCN(torch.nn.Module):
+class GCN(Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(GCN, self).__init__()
         self.batchnorm = batchnorm
@@ -34,28 +34,30 @@ class GCN(torch.nn.Module):
             bn.reset_parameters()
 
 
-class GCN2(torch.nn.Module):
+class GCN2(Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(GCN2, self).__init__()
         self.batchnorm = batchnorm
         self.dropout = dropout
+        from torch.nn import Linear
         self.convs = ModuleList()
-        self.convs.append(GCNConv(in_channels, hidden_channels, normalize=False))
+        self.convs.append(Linear(in_channels, hidden_channels))
         self.bns = ModuleList()
-        self.bns.append(BatchNorm1d(hidden_channels))
-        for _ in range(num_layers-2):
-            self.convs.append(GCN2Conv(hidden_channels, alpha=0.1, theta=0.1, normalize=False))
+        for i in range(num_layers):
+            self.convs.append(GCN2Conv(hidden_channels, alpha=0.1, theta=0.5, layer=i+1, normalize=False))
             self.bns.append(BatchNorm1d(hidden_channels))
-        self.convs.append(GCNConv(hidden_channels, out_channels, normalize=False))
+        self.convs.append(Linear(hidden_channels, out_channels))
 
     def forward(self, data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
-        for i, conv in enumerate(self.convs[:-1]):
-            x = conv(x, edge_index, edge_weight)
+        x = self.convs[0](x)
+        x = x_0 = F.relu(x)
+        for i, conv in enumerate(self.convs[1:-1]):
+            x = conv(x, x_0, edge_index, edge_weight)
             if self.batchnorm: x = self.bns[i](x)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.convs[-1](x, edge_index, edge_weight)
+        x = self.convs[-1](x)
         return x
 
     def reset_parameters(self):
@@ -65,7 +67,7 @@ class GCN2(torch.nn.Module):
             bn.reset_parameters()
 
 
-class GIN(torch.nn.Module):
+class GIN(Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(GIN, self).__init__()
         self.batchnorm = batchnorm
@@ -82,18 +84,20 @@ class GIN(torch.nn.Module):
             self.nn.append(ReLU())
             self.nn.append(Dropout(p=self.dropout))
         self.nn.append(Linear(hidden_channels, out_channels))
-        self.conv = GINConv(nn=self.nn)
+        self.convs = ModuleList()
+        self.convs.append(GINConv(nn=self.nn))
 
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
-        x = self.conv(x, edge_index)
+        x = self.convs[0](x, edge_index)
         return x
 
     def reset_parameters(self):
-        self.conv.reset_parameters()
+        for conv in self.convs:
+            conv.reset_parameters()
 
 
-class SAGE(torch.nn.Module):
+class SAGE(Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(SAGE, self).__init__()
         self.batchnorm = batchnorm
@@ -124,20 +128,22 @@ class SAGE(torch.nn.Module):
             bn.reset_parameters()
 
 
-class SGC(torch.nn.Module):
+class SGC(Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
         super(SGC, self).__init__()
         self.batchnorm = batchnorm
         self.dropout = dropout
-        self.conv = SGConv(in_channels, out_channels, K=num_layers, normalize=False)
+        self.convs = ModuleList()
+        self.convs.append(SGConv(in_channels, out_channels, K=num_layers, normalize=False))
 
     def forward(self, data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
-        x = self.conv(x, edge_index, edge_weight)
+        x = self.convs[0](x, edge_index, edge_weight)
         return x
     
     def reset_parameters(self):
-        self.conv.reset_parameters()
+        for conv in self.convs:
+            conv.reset_parameters()
 
 
 def main_gnn(args, device, data, method):

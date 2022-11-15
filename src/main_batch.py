@@ -1,15 +1,16 @@
 import torch
 import torch.nn.functional as F
-from tqdm import tqdm
 
 from main_gnn import GCN, GCN2, GIN, SAGE, SGC
 
 def main_batch(args, device, data, method):
 
     from torch_geometric.loader import NeighborLoader
+    x = data.x.to('cpu')
+    y = data.y.to('cpu')
     train_mask = data.train_mask.to('cpu')
-    train_loader = NeighborLoader(data, input_nodes=train_mask, num_neighbors=[25, 10], shuffle=True, batch_size=16384, num_workers=16)
-    subgraph_loader = NeighborLoader(data.clone(), input_nodes=None, num_neighbors=[-1], shuffle=False, batch_size=16384, num_workers=16)
+    train_loader = NeighborLoader(data, input_nodes=train_mask, num_neighbors=[25, 10], shuffle=True, batch_size=args.batch_size, num_workers=16)
+    subgraph_loader = NeighborLoader(data.clone(), input_nodes=None, num_neighbors=[-1], shuffle=False, batch_size=args.batch_size, num_workers=16)
 
     # No need to maintain these features during evaluation:
     del subgraph_loader.data.x, subgraph_loader.data.y
@@ -35,8 +36,7 @@ def main_batch(args, device, data, method):
     @torch.no_grad()
     def test():
         model.eval()
-        y_hat = inference(model, data.x, subgraph_loader).argmax(dim=-1)
-        y = data.y.cpu()
+        y_hat = inference(x).argmax(dim=-1)
         accs = []
         for mask in [data.train_mask, data.val_mask, data.test_mask]:
             acc = torch.mean((y_hat[mask] == y[mask]).to(torch.float))
@@ -44,16 +44,27 @@ def main_batch(args, device, data, method):
         return accs
 
     @torch.no_grad()
-    def inference(model, x_all, subgraph_loader):
-        only_edge_index = type(model).__name__ in ["GIN", "SAGE"]
+    def inference(x_all):
+        only_edge_index = method in ["GIN", "SAGE"]
+        init_residual = method == "GCN2"
+        if init_residual: x0_all = torch.zeros((data.num_nodes, args.dim_hidden))
         for i, conv in enumerate(model.convs):
             xs = []
             for batch in subgraph_loader:
-                x = x_all[batch.n_id.to(x_all.device)].to(device)
-                if only_edge_index:
+                x = x_all[batch.n_id].to(device)
+                if init_residual:
+                    if i == 0:
+                        x = conv(x)
+                        x0_all[batch.n_id] = F.relu(x).cpu()
+                    elif i < len(model.convs) - 1:
+                        x0 = x0_all[batch.n_id].to(device)
+                        x = conv(x, x0, batch.edge_index, batch.edge_attr)
+                    else:
+                        x = conv(x)
+                elif only_edge_index:
                     x = conv(x, batch.edge_index)
                 else:
-                    x = conv(x, batch.edge_index, batch.edge_weight)
+                    x = conv(x, batch.edge_index, batch.edge_attr)
                 if i < len(model.convs) - 1: x = F.relu(x)
                 xs.append(x[:batch.batch_size].cpu())
             x_all = torch.cat(xs, dim=0)

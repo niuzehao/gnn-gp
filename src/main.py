@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--batch_size', type=int, default=0)
 
     args = parser.parse_args()
     print(args)
@@ -138,7 +139,7 @@ def main():
 
     if args.action == 'gnn':
         args.batchnorm = name == 'arxiv'
-        if name != 'Reddit':
+        if args.batch_size <= 0:
             from main_gnn import main_gnn
             main_gnn(args, device, data, method)
         else:

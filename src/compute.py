@@ -200,8 +200,8 @@ def _GCN_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
 
 
 def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha:float=0.1, theta:float=0.1) -> Tensor:
-    ExxT = torch.zeros_like(K0)
-    K = sigma_w**2 * A @ (A @ K0).T
+    ExxT = _ExxT_ReLU(K0)
+    K = sigma_w**2 * A @ (A @ ExxT).T
     for j in range(L):
         ExxT[:] = _ExxT_ReLU(K)
         beta = np.log(theta/(j+1)+1)
@@ -212,8 +212,9 @@ def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha
 
 def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, alpha:float=0.1, theta:float=0.1) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
+    ExxT = _ExxT_ReLU_Nystrom(Q0, mask)
     Q = torch.zeros((N, Na+Ni), device=Q0.device)
-    Q[:,:Ni] = sigma_w * A @ Q0
+    Q[:,:Na] = sigma_w * A @ ExxT
     for j in range(L):
         ExxT = _ExxT_ReLU_Nystrom(Q, mask)
         beta = np.log(theta/(j+1)+1)
@@ -265,7 +266,7 @@ def _SAGE_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:floa
 def _SGC_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float) -> Tensor:
     K = sigma_b**2 + sigma_w**2 * K0
     for j in range(L):
-        K[:] = A @ (A @ K0).T
+        K[:] = A @ (A @ K).T
     return K
 
 
