@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch.nn import Module, ModuleList, BatchNorm1d
-from torch_geometric.nn import GCNConv, GCN2Conv, GINConv, SAGEConv, SGConv
+from torch_geometric.nn import GCNConv, GCN2Conv, GINConv, SAGEConv
 
 class GCN(Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
@@ -128,24 +128,6 @@ class SAGE(Module):
             bn.reset_parameters()
 
 
-class SGC(Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, batchnorm, dropout):
-        super(SGC, self).__init__()
-        self.batchnorm = batchnorm
-        self.dropout = dropout
-        self.convs = ModuleList()
-        self.convs.append(SGConv(in_channels, out_channels, K=num_layers, normalize=False))
-
-    def forward(self, data):
-        x, edge_index, edge_weight = data.x, data.edge_index, data.edge_attr
-        x = self.convs[0](x, edge_index, edge_weight)
-        return x
-    
-    def reset_parameters(self):
-        for conv in self.convs:
-            conv.reset_parameters()
-
-
 def main_gnn(args, device, data, method):
 
     def nll_loss(model, data):
@@ -197,8 +179,6 @@ def main_gnn(args, device, data, method):
         model = GIN(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     elif method == "SAGE":
         model = SAGE(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
-    elif method == "SGC":
-        model = SGC(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     else:
         raise Exception("Unsupported GNN architecture!")
 
@@ -231,8 +211,8 @@ def main_gnn(args, device, data, method):
         model.reset_parameters()
 
     if args.runs > 1:
-        print('----')
+        print("----")
         print("Mean:   ", result_format(torch.mean(result_runs, dim=0)))
         print("SD:     ", result_format(torch.std(result_runs, dim=0)))
-    print('----')
+    print("----")
 

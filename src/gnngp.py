@@ -19,7 +19,7 @@ class GNNGP(object):
                  Nystrom:bool=False, device:int=0, **params):
         self.set_hyper_param(L, sigma_b, sigma_w)
         self.Nystrom = Nystrom
-        self.device = torch.device('cuda:%s' % device if device>=0 else 'cpu')
+        self.device = torch.device("cuda:%s" % device if device>=0 else "cpu")
         self.N, self.X, self.y, self.A, self.mask = datasets.get_data(data.to(self.device))
     
     def set_hyper_param(self, L:int, sigma_b:float, sigma_w:float) -> None:
@@ -68,9 +68,8 @@ class GNNGP(object):
                 "GCN2": GCN with initial residual connections and identity mapping (GCNII).
                 "GIN": graph isomorphism network.
                 "SAGE": graph sample and aggregate network.
-                "SGC": simple graph convolutional network.
-            **params (dict, optional): extra arguments to `method`. supported arguments:
-                mask (Tensor): the mask for landmark points in Nystrom approximation.
+                "GGP": graph Gaussian process.
+            **params (dict, optional): extra arguments to `method`.
         """
         if not self.computed:
             self.set_init_kernel(**params)
@@ -111,7 +110,7 @@ class GNNGP(object):
         Returns a dictionary of model hyper-parameters and best train, validation and test results.
         """
         summary = {"L": self.L, "sigma_b": self.sigma_b, "sigma_w": self.sigma_w}
-        if hasattr(self, 'result'):
+        if hasattr(self, "result"):
             result = self.result
             i = torch.argmax(result["val"])
             summary.update({"nugget": self.nugget[i], "train": result["train"][i], "val": result["val"][i], "test": result["test"][i]})

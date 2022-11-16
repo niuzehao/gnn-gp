@@ -112,7 +112,8 @@ def _get_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method
             "GCN2": GCN with initial residual connections and identity mapping (GCNII).
             "GIN": graph isomorphism network.
             "SAGE": graph sample and aggregate network.
-            "SGC": simple graph convolutional network.
+            "GGP": graph Gaussian process.
+        **params (dict, optional): extra arguments to `method`.
     """
     if method == "GCN":
         return _GCN_kernel(K0, A, L, sigma_b, sigma_w)
@@ -121,9 +122,9 @@ def _get_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method
     elif method == "GIN":
         return _GIN_kernel(K0, A, L, sigma_b, sigma_w, **params)
     elif method == "SAGE":
-        return _SAGE_kernel(K0, A, L, sigma_b, sigma_w, **params)
-    elif method == "SGC":
-        return _SGC_kernel(K0, A, L, sigma_b, sigma_w, **params)
+        return _SAGE_kernel(K0, A, L, sigma_b, sigma_w)
+    elif method == "GGP":
+        return _GGP_kernel(K0, A)
     else:
         raise Exception("Unsupported layer type!")
 
@@ -144,7 +145,8 @@ def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
             "GCN2": GCN with initial residual connections and identity mapping (GCNII).
             "GIN": graph isomorphism network.
             "SAGE": graph sample and aggregate network.
-            "SGC": simple graph convolutional network.
+            "GGP": graph Gaussian process.
+        **params (dict, optional): extra arguments to `method`.
     """
     if method == "GCN":
         return _GCN_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask)
@@ -153,9 +155,9 @@ def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
     elif method == "GIN":
         return _GIN_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
     elif method == "SAGE":
-        return _SAGE_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
-    elif method == "SGC":
-        return _SGC_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask, **params)
+        return _SAGE_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask)
+    elif method == "GGP":
+        return _GGP_kernel_Nystrom(Q0, A, mask)
     else:
         raise Exception("Unsupported layer type!")
 
@@ -199,7 +201,7 @@ def _GCN_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
     return Q
 
 
-def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha:float=0.1, theta:float=0.1) -> Tensor:
+def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha:float=0.1, theta:float=0.5) -> Tensor:
     ExxT = _ExxT_ReLU(K0)
     K = sigma_w**2 * A @ (A @ ExxT).T
     for j in range(L):
@@ -210,7 +212,7 @@ def _GCN2_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, alpha
     return K
 
 
-def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, alpha:float=0.1, theta:float=0.1) -> Tensor:
+def _GCN2_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor, alpha:float=0.1, theta:float=0.5) -> Tensor:
     N, Ni = Q0.shape; Na = torch.sum(mask)
     ExxT = _ExxT_ReLU_Nystrom(Q0, mask)
     Q = torch.zeros((N, Na+Ni), device=Q0.device)
@@ -263,18 +265,12 @@ def _SAGE_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:floa
     return Q
 
 
-def _SGC_kernel(K0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float) -> Tensor:
-    K = sigma_b**2 + sigma_w**2 * K0
-    for j in range(L):
-        K[:] = A @ (A @ K).T
+def _GGP_kernel(K0:Tensor, A:Tensor) -> Tensor:
+    K = A @ (A @ K0).T
     return K
 
 
-def _SGC_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, mask:Tensor) -> Tensor:
-    N, Ni = Q0.shape; Na = torch.sum(mask)
-    Q = torch.zeros((N, Ni+1), device=Q0.device)
-    Q[:,:Ni] = sigma_w * Q0 ; Q[:,-1] = sigma_b
-    for j in range(L):
-        Q[:] = A @ Q
+def _GGP_kernel_Nystrom(Q0:Tensor, A:Tensor, mask:Tensor) -> Tensor:
+    Q = A @ Q0
     return Q
 

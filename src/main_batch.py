@@ -1,14 +1,14 @@
 import torch
 import torch.nn.functional as F
 
-from main_gnn import GCN, GCN2, GIN, SAGE, SGC
+from main_gnn import GCN, GCN2, GIN, SAGE
 
 def main_batch(args, device, data, method):
 
     from torch_geometric.loader import NeighborLoader
-    x = data.x.to('cpu')
-    y = data.y.to('cpu')
-    train_mask = data.train_mask.to('cpu')
+    x = data.x.to("cpu")
+    y = data.y.to("cpu")
+    train_mask = data.train_mask.to("cpu")
     train_loader = NeighborLoader(data, input_nodes=train_mask, num_neighbors=[25, 10], shuffle=True, batch_size=args.batch_size, num_workers=16)
     subgraph_loader = NeighborLoader(data.clone(), input_nodes=None, num_neighbors=[-1], shuffle=False, batch_size=args.batch_size, num_workers=16)
 
@@ -79,8 +79,6 @@ def main_batch(args, device, data, method):
         model = GIN(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     elif method == "SAGE":
         model = SAGE(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
-    elif method == "SGC":
-        model = SGC(data.num_features, args.dim_hidden, out_channels, args.num_layers, args.batchnorm, args.dropout).to(device)
     else:
         raise Exception("Unsupported GNN architecture!")
 
@@ -113,8 +111,8 @@ def main_batch(args, device, data, method):
         model.reset_parameters()
 
     if args.runs > 1:
-        print('----')
+        print("----")
         print("Mean:   ", result_format(torch.mean(result_runs, dim=0)))
         print("SD:     ", result_format(torch.std(result_runs, dim=0)))
-    print('----')
+    print("----")
 

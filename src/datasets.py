@@ -69,6 +69,7 @@ class Scale(BaseTransform):
             data.x /= torch.sqrt(torch.sum(data.x**2, dim=0, keepdim=True))
         return data
 
+
 class RawWikipediaNetwork(InMemoryDataset):
     """
     The Wikipedia networks used in the
@@ -111,7 +112,7 @@ class RawWikipediaNetwork(InMemoryDataset):
     @property
     def raw_file_names(self) -> str:
         raw_file_names = [f"{self.name}.json", f"{self.name}_edges.csv", f"{self.name}_target.csv"]
-        if self.name != 'crocodile':
+        if self.name != "crocodile":
             raw_file_names += [f"{self.name}_split_0.6_0.2_{i}.npz" for i in range(10)]
         return raw_file_names
 
@@ -144,7 +145,7 @@ class RawWikipediaNetwork(InMemoryDataset):
             y = [int(r.split(",")[1]) for r in data]
             y = torch.log(torch.tensor(y))
         
-        if self.name != 'crocodile':
+        if self.name != "crocodile":
             from numpy import load
             f = load(self.raw_paths[3])
             train_mask = torch.from_numpy(f["train_mask"]).to(torch.bool)
@@ -188,7 +189,7 @@ class OGB_arxiv(InMemoryDataset):
             being saved to disk. (default: :obj:`None`)
     """
 
-    url = 'http://snap.stanford.edu/ogb/data/nodeproppred/arxiv.zip'
+    url = "http://snap.stanford.edu/ogb/data/nodeproppred/arxiv.zip"
 
     def __init__(self, root: str, transform = None, pre_transform = None):
         super().__init__(root, transform, pre_transform)
@@ -200,58 +201,58 @@ class OGB_arxiv(InMemoryDataset):
 
     @property
     def raw_dir(self) -> str:
-        return osp.join(self.root, 'arxiv', 'raw')
+        return osp.join(self.root, "arxiv", "raw")
 
     @property
     def processed_dir(self) -> str:
-        return osp.join(self.root, 'arxiv', 'processed')
+        return osp.join(self.root, "arxiv", "processed")
 
     @property
     def raw_file_names(self) -> str:
-        file_names = ['node-feat.csv.gz', 'node-label.csv.gz', 'edge.csv.gz', 'train.csv.gz', 'valid.csv.gz', 'test.csv.gz']
+        file_names = ["node-feat.csv.gz", "node-label.csv.gz", "edge.csv.gz", "train.csv.gz", "valid.csv.gz", "test.csv.gz"]
         return file_names
 
     @property
     def processed_file_names(self) -> str:
-        return 'data.pt'
+        return "data.pt"
 
     def download(self):
         import os, shutil
         path = download_url(self.url, self.raw_dir)
         extract_zip(path, self.raw_dir)
         for file_name in self.raw_file_names[:3]:
-            path = osp.join(self.raw_dir, 'arxiv', 'raw', file_name)
+            path = osp.join(self.raw_dir, "arxiv", "raw", file_name)
             shutil.move(path, self.raw_dir)
         for file_name in self.raw_file_names[3:]:
-            path = osp.join(self.raw_dir, 'arxiv', 'split', 'time', file_name)
+            path = osp.join(self.raw_dir, "arxiv", "split", "time", file_name)
             shutil.move(path, self.raw_dir)
-        shutil.rmtree(osp.join(self.raw_dir, 'arxiv'))
-        os.remove(osp.join(self.raw_dir, 'arxiv.zip'))
+        shutil.rmtree(osp.join(self.raw_dir, "arxiv"))
+        os.remove(osp.join(self.raw_dir, "arxiv.zip"))
 
     def process(self):
         import pandas as pd
         import numpy as np
 
-        values = pd.read_csv(self.raw_paths[0], compression='gzip', header=None, dtype=np.float32).values
+        values = pd.read_csv(self.raw_paths[0], compression="gzip", header=None, dtype=np.float32).values
         x = torch.from_numpy(values)
 
-        values = pd.read_csv(self.raw_paths[1], compression='gzip', header=None, dtype=np.int64).values
+        values = pd.read_csv(self.raw_paths[1], compression="gzip", header=None, dtype=np.int64).values
         y = torch.from_numpy(values).view(-1)
 
         # A symmetrization is required for the graph.
-        values = pd.read_csv(self.raw_paths[2], compression='gzip', header=None, dtype=np.int64).values
+        values = pd.read_csv(self.raw_paths[2], compression="gzip", header=None, dtype=np.int64).values
         values = torch.from_numpy(values).t().contiguous()
         edge_index = torch.unique(torch.cat((values, values.flip(0)), dim=1), dim=1)
         edge_index, _ = coalesce(edge_index, None, x.size(0), x.size(0))
 
         data = Data(x=x, edge_index=edge_index, y=y)
 
-        for f, v in [('train', 'train'), ('valid', 'val'), ('test', 'test')]:
-            values = pd.read_csv(f"{self.raw_dir}/{f}.csv.gz", compression='gzip', header=None, dtype=np.int64).values
+        for f, v in [("train", "train"), ("valid", "val"), ("test", "test")]:
+            values = pd.read_csv(f"{self.raw_dir}/{f}.csv.gz", compression="gzip", header=None, dtype=np.int64).values
             idx = torch.from_numpy(values).view(-1)
             mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             mask[idx] = True
-            data[f'{v}_mask'] = mask
+            data[f"{v}_mask"] = mask
 
         if self.pre_transform is not None:
             data = self.pre_transform(data)
@@ -289,7 +290,7 @@ def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
         data.num_classes = dataset.num_classes
     elif name == "Reddit":
         from torch_geometric.datasets.reddit import Reddit
-        datasets = Reddit(osp.join(path,'Reddit'))
+        datasets = Reddit(osp.join(path,"Reddit"))
         data = datasets[0]
         data.num_classes = datasets.num_classes
     else: raise Exception("Unsupported Dataset!")
