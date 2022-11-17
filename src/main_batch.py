@@ -9,7 +9,8 @@ def main_batch(args, device, data, method):
     x = data.x.to("cpu")
     y = data.y.to("cpu")
     train_mask = data.train_mask.to("cpu")
-    train_loader = NeighborLoader(data, input_nodes=train_mask, num_neighbors=[25, 10], shuffle=True, batch_size=args.batch_size, num_workers=16)
+    num_neighbors = [25, 10] if method in ["GIN", "SAGE"] else [-1]
+    train_loader = NeighborLoader(data, input_nodes=train_mask, num_neighbors=num_neighbors, shuffle=True, batch_size=args.batch_size, num_workers=16)
     subgraph_loader = NeighborLoader(data.clone(), input_nodes=None, num_neighbors=[-1], shuffle=False, batch_size=args.batch_size, num_workers=16)
 
     # No need to maintain these features during evaluation:
