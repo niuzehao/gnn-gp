@@ -23,11 +23,11 @@ The time result is also used in Figure 1 and Figure 2.
 The `src/main.py` runs automatic experiments with following command line arguments:
 
 ### Model options
-    --data      str     Possible values: 'Cora', 'CiteSeer', 'PubMed', 'chameleon', 'crocodile', 'squirrel', 'arxiv', 'Reddit'.
-    --method    str     Possible values: 'GCN', 'GCN2', 'GIN', 'SAGE'.
-    --action    str     Possible values: 'gnn', 'gp', 'rbf'.
-    --device    int     Default is `0`. (Running on `cuda:0`).
-    --runs      int     Default is `10` for random results and 1 for deterministic results.
+    --data      str     Possible values: Cora, CiteSeer, PubMed, chameleon, crocodile, squirrel, arxiv, Reddit.
+    --method    str     Possible values: GCN, GCN2, GIN, SAGE.
+    --action    str     Possible values: gnn, gp, rbf.
+    --device    int     Default is `0` (GPU index 0). To run CPU tests, set this to `-1`.
+    --runs      int     Default is `10` for random results and `1` for deterministic results.
     --verbose   bool    Default is `False`.
 
 ###  Preprocessing
@@ -38,7 +38,7 @@ The `src/main.py` runs automatic experiments with following command line argumen
     --num_layers    int     Default is `2`.
     --sigma_b       float   Default is `0.0`.
     --sigma_w       float   Default is `1.0`.
-    --fraction      int     Default is `0`.
+    --fraction      int     Default is `0` (no Nystrom approximation).
 
 ### GNN arguments
     --num_layers    int     Default is `2`.
@@ -46,6 +46,7 @@ The `src/main.py` runs automatic experiments with following command line argumen
     --dropout       float   Default is `0.5`.
     --lr            float   Default is `0.01`.
     --epochs        int     Default is `100`.
+    --batch_size    int     Default is `0` (no mini-batching).
 
 # Requirements
 The code is implemented in
