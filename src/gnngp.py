@@ -9,13 +9,13 @@ class GNNGP(object):
 
     Args:
         data (torch_geometric.datasets): a graph dataset.
-        L (int): number of hidden layers of the Graph NN. (default: `1`)
+        L (int): number of layers of the Graph NN. (default: `2`)
         sigma_b (float): bias variance of the Graph NN. (default: `0.1`)
         sigma_w (float): weight variance of the Graph NN. (default: `1.0`)
         Nystrom (bool): whether use Nystrom approximation in computation.
         device (int): which GPU in computation when available. 
     """
-    def __init__(self, data, L:int=1, sigma_b:float=0.1, sigma_w:float=1.0,
+    def __init__(self, data, L:int=2, sigma_b:float=0.1, sigma_w:float=1.0,
                  Nystrom:bool=False, device:int=0, **params):
         self.set_hyper_param(L, sigma_b, sigma_w)
         self.Nystrom = Nystrom
@@ -27,7 +27,7 @@ class GNNGP(object):
         Set hyper parameters of the Gaussian Process Kernel.
 
         Args:
-            L (int): number of hidden layers of the Graph NN.
+            L (int): number of layers of the Graph NN.
             sigma_b (float): bias variance of the Graph NN.
             sigma_w (float): weight variance of the Graph NN.
         """
@@ -56,7 +56,7 @@ class GNNGP(object):
         if self.Nystrom:
             self.Q0 = compute._init_kernel_Nystrom(self.X, self.mask["landmark"], kernel, **params)
         else:
-            self.K0 = compute._init_kernel(self.X, kernel, **params)
+            self.C0 = compute._init_kernel(self.X, kernel, **params)
 
     def get_kernel(self, method:str="GCN", **params) -> Tensor:
         """
@@ -76,7 +76,7 @@ class GNNGP(object):
             if self.Nystrom:
                 self.Q = compute._get_kernel_Nystrom(self.Q0, self.A, self.L, self.sigma_b, self.sigma_w, self.mask["landmark"], method, **params)
             else:
-                self.K = compute._get_kernel(self.K0, self.A, self.L, self.sigma_b, self.sigma_w, method, **params)
+                self.K = compute._get_kernel(self.C0, self.A, self.L, self.sigma_b, self.sigma_w, method, **params)
             self.computed = True
         return self.Q if self.Nystrom else self.K
 

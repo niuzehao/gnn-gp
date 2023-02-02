@@ -81,8 +81,7 @@ def main():
         result_runs = torch.zeros((args.runs, 4))
         epsilon = torch.logspace(-3, 1, 101, device=device)
         params = {} if method != "GGP" else {"kernel":"polynomial", "c":5.0, "d":3.0}
-        L = args.num_layers - 1 # number of hidden layers
-        model = GNNGP(data, L, args.sigma_b, args.sigma_w, device=args.device, Nystrom=args.fraction > 0)
+        model = GNNGP(data, args.num_layers, args.sigma_b, args.sigma_w, device=args.device, Nystrom=args.fraction > 0)
         for j in range(args.runs):
             if args.fraction > 0:
                 model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
@@ -112,7 +111,7 @@ def main():
                 if args.fraction > 0:
                     model.Q = model.Q0
                 else:
-                    model.K = model.K0
+                    model.K = model.C0
                 model.computed = True
                 model.predict(epsilon)
                 summary = model.get_summary()
