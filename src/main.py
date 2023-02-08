@@ -64,7 +64,7 @@ def main():
 
     torch.manual_seed(123)
     if args.fraction > 0:
-        print("Random select %.0f percent of landmark points" % (100/args.fraction))
+        print("Using Nystrom. Randomly select %.0f percent of landmark points." % (100/args.fraction))
     if args.runs <= 0:
         if args.action != "gnn" and args.fraction <= 1:
             print("No randomness. Run only once.")
