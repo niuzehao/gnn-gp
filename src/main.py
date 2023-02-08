@@ -33,7 +33,6 @@ def main():
     parser.add_argument("--batch_size", type=int, default=0)
 
     args = parser.parse_args()
-    print(args)
 
     dnames = ["Cora", "CiteSeer", "PubMed", "chameleon", "crocodile", "squirrel", "arxiv", "Reddit"]
     methods = ["GCN", "GCN2", "GIN", "SAGE", "GGP"]
@@ -43,7 +42,8 @@ def main():
             print("Dataset: %s" % name)
             break
     else:
-        raise Exception("Unsupported data! Possible values: " + " ".join(dnames))
+        message = "Unsupported data! Possible values: " + " ".join(dnames)
+        raise Exception(message)
 
     if args.action in ["gnn", "gp"]:
         for method in methods:
@@ -51,7 +51,8 @@ def main():
                 print("Method: %s%s" % (method, "-GP" if args.action == "gp" else ""))
                 break
         else:
-            raise Exception("Unsupported method! Possible values: " + " ".join(methods))
+            message = "Unsupported method! Possible values: " + " ".join(methods)
+            raise Exception(message)
     else:
         print("Method: RBF")
 
@@ -80,13 +81,15 @@ def main():
         now = process_time()
         result_runs = torch.zeros((args.runs, 4))
         epsilon = torch.logspace(-3, 1, 101, device=device)
-        params = {} if method != "GGP" else {"kernel":"polynomial", "c":5.0, "d":3.0}
-        model = GNNGP(data, args.num_layers, args.sigma_b, args.sigma_w, device=args.device, Nystrom=args.fraction > 0)
+        params = {}
+        if method == "GGP": params.update({"initial":"polynomial", "c":5.0, "d":3.0})
+        if method == "GCN2": params.update({"alpha":0.1, "theta":0.5})
+        model = GNNGP(data, device=device, Nystrom=args.fraction > 0)
         for j in range(args.runs):
             if args.fraction > 0:
                 model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
-            model.computed = False
-            model.get_kernel(method=method, **params)
+            model.set_hyper_param(args.num_layers, args.sigma_b, args.sigma_w, method=method, **params)
+            model.get_kernel()
             model.predict(epsilon)
             summary = model.get_summary()
             result_runs[j] = torch.tensor([process_time()-now, summary["train"], summary["val"], summary["test"]])
@@ -102,17 +105,17 @@ def main():
         now = process_time()
         result_runs = torch.zeros((args.runs, 4))
         epsilon = torch.logspace(-3, 1, 101, device=device)
-        model = GNNGP(data, 0, 0.0, 1.0, device=args.device, Nystrom=args.fraction > 0)
+        model = GNNGP(data, device=device, Nystrom=args.fraction > 0)
         for j in range(args.runs):
             if args.fraction > 0:
                 model.mask["landmark"] = model.mask["train"] & (torch.rand(model.N, device=device) < 1/args.fraction)
             for gamma in torch.logspace(-2, 2, 101):
-                model.set_init_kernel(kernel="rbf", gamma=gamma)
+                model.set_hyper_param(L=1, initial="rbf", gamma=gamma)
+                model.get_kernel()
                 if args.fraction > 0:
                     model.Q = model.Q0
                 else:
                     model.K = model.C0
-                model.computed = True
                 model.predict(epsilon)
                 summary = model.get_summary()
                 if summary["val"] > result_runs[j][2]:

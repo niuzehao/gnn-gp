@@ -3,7 +3,12 @@ This repository contains pytorch open source implementation of our ICLR2023 pape
 
 [Graph Neural Network-Inspired Kernels for Gaussian Processes in Semi-Supervised Learning](https://openreview.net/pdf?id=flap0Bo6TK_)
 
+# Examples
+
+To get started, the `notebooks/` contains interactive notebooks to playing with. They demo the major features of GNNGP and shows how it can be used in research.
+
 # Usage
+
 The `src/main.py` runs automatic experiments with following command line arguments:
 
 ## Model options

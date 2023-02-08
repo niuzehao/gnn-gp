@@ -3,7 +3,5 @@ __pycache__/
 .vscode/
 data/
 fig/
-notebooks/
 test/
-test.py
 .DS_Store

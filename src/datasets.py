@@ -266,15 +266,15 @@ def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
     Load specific datasets. Automatic downloads may occur upon first use.
 
     Args:
-        name: str, name for the dataset. possible values:
+        name (str): name for the dataset. possible values:
             "Cora", "CiteSeer", "PubMed": Planetoid dataset.
             "chameleon", "crocodile", "squirrel": Wikipedia dataset.
             "arxiv": OGBN dataset.
             "Reddit": reddit dataset.
-        path: str, directory where the dataset should be saved.
-        center: bool, center each column to have mean 0.
-        scale: bool, scale each column to have standard deviation 1.
-        transform: `torch_geometric.transforms` to be applied in the end.
+        path (str): directory where the dataset should be saved.
+        center (bool): center each column to have mean 0.
+        scale (bool): scale each column to have standard deviation 1.
+        transform (`torch_geometric.transforms`): to be applied in the end.
     """
     if name in ["Cora", "CiteSeer", "PubMed"]:
         from torch_geometric.datasets import Planetoid

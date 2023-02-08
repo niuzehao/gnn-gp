@@ -5,7 +5,7 @@ from typing import Dict, Union
 
 def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float, Tensor]=1e-2):
     """
-    Make predictions using training data, for each given nugget.
+    Make predictions for a range of nugget values in one shot.
     For classification problems, the prediction target is classification probability.
     For regression problems, the prediction target is output value.
 
@@ -35,7 +35,7 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float, Tensor]=1e-2)
 
 def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nugget:Union[float, Tensor]=1e-2):
     """
-    Make predictions using training data, for each given nugget.
+    Make predictions for a range of nugget values in one shot.
     For classification problems, the prediction target is classification probability.
     For regression problems, the prediction target is output value.
 
