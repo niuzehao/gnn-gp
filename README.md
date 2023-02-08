@@ -9,6 +9,8 @@ To get started, the `notebooks/` contains interactive notebooks to playing with.
 
 # Usage
 
+![Example](./example.svg)
+
 The `src/main.py` runs automatic experiments with following command line arguments:
 
 ## Model options

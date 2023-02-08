@@ -58,7 +58,7 @@ def main():
 
     transform = transition_matrix(normalization_in="sym" if method not in ["SAGE", "GGP"] else "row")
     data = load_data(name, center=args.center, scale=args.scale, transform=transform)
-    device = torch.device("cuda:%s" % args.device if args.device>=0 else "cpu")
+    device = torch.device("cuda:%s" % args.device if args.device>=0 and torch.cuda.is_available() else "cpu")
     data = data.to(device)
     print("Dataset loaded to %s" % device)
 
