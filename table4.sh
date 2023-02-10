@@ -25,20 +25,20 @@ python3 src/main.py --data=arxi --method=gcn --action=gp --fraction=50 --center
 python3 src/main.py --data=redd --method=gcn --action=gp --fraction=50
 
 # RBF and RBF-X
-python3 src/main.py --data=cham --method=gcn --action=rbf
-python3 src/main.py --data=squi --method=gcn --action=rbf
-python3 src/main.py --data=croc --method=gcn --action=rbf
-python3 src/main.py --data=cora --method=gcn --action=rbf
-python3 src/main.py --data=cite --method=gcn --action=rbf
-python3 src/main.py --data=pubm --method=gcn --action=rbf
-python3 src/main.py --data=cham --method=gcn --action=rbf --fraction=1
-python3 src/main.py --data=squi --method=gcn --action=rbf --fraction=1
-python3 src/main.py --data=croc --method=gcn --action=rbf --fraction=1
-python3 src/main.py --data=cora --method=gcn --action=rbf --fraction=1
-python3 src/main.py --data=cite --method=gcn --action=rbf --fraction=1
-python3 src/main.py --data=pubm --method=gcn --action=rbf --fraction=1
-python3 src/main.py --data=arxi --method=gcn --action=rbf --fraction=50 --runs=1
-python3 src/main.py --data=redd --method=gcn --action=rbf --fraction=50 --runs=1
+python3 src/main.py --data=cham --method=rbf --action=gp
+python3 src/main.py --data=squi --method=rbf --action=gp
+python3 src/main.py --data=croc --method=rbf --action=gp
+python3 src/main.py --data=cora --method=rbf --action=gp
+python3 src/main.py --data=cite --method=rbf --action=gp
+python3 src/main.py --data=pubm --method=rbf --action=gp
+python3 src/main.py --data=cham --method=rbf --action=gp --fraction=1
+python3 src/main.py --data=squi --method=rbf --action=gp --fraction=1
+python3 src/main.py --data=croc --method=rbf --action=gp --fraction=1
+python3 src/main.py --data=cora --method=rbf --action=gp --fraction=1
+python3 src/main.py --data=cite --method=rbf --action=gp --fraction=1
+python3 src/main.py --data=pubm --method=rbf --action=gp --fraction=1
+python3 src/main.py --data=arxi --method=rbf --action=gp --fraction=50 --runs=1
+python3 src/main.py --data=redd --method=rbf --action=gp --fraction=50 --runs=1
 
 # GGP and GGP-X
 python3 src/main.py --data=cham --method=ggp --action=gp

@@ -3,7 +3,7 @@ This repository contains pytorch open source implementation of our ICLR2023 pape
 
 [Graph Neural Network-Inspired Kernels for Gaussian Processes in Semi-Supervised Learning](https://openreview.net/pdf?id=flap0Bo6TK_)
 
-The code performs Gaussian Process (GP) inference by using kernels derived from the infinite-width limit of the graph neural networks (GNNs). The inference is scalable to large graph datasets through recursive Nystrom approximation of each layer.
+The code performs Gaussian Process (GP) inference by using kernels derived from the infinite-width limit of the Graph Neural Networks (GNNs). The inference is scalable to large graph datasets through recursive Nystrom approximation of each layer.
 
 # Examples
 
@@ -11,14 +11,14 @@ The `notebooks/` directory contains interactive notebooks to demo the usage and 
 
 # Usage
 
-![Example](./example.svg)
+![Example](example.svg)
 
 The `src/main.py` runs automatic experiments with following command line arguments:
 
 ## Model options
     --data      str     Possible values: Cora, CiteSeer, PubMed, chameleon, crocodile, squirrel, arxiv, Reddit.
-    --method    str     Possible values: GCN, GCN2, GIN, SAGE.
-    --action    str     Possible values: gnn, gp, rbf.
+    --method    str     Possible values: GCN, GCN2, GIN, SAGE, GGP, RBF (last two for benchmark use).
+    --action    str     Possible values: gnn, gp.
     --device    int     Default is `0` (GPU index 0). To run CPU tests, set this to `-1`.
     --runs      int     Default is `10` for random results and `1` for deterministic results.
     --verbose   bool    Default is `False`.
@@ -31,8 +31,7 @@ The `src/main.py` runs automatic experiments with following command line argumen
     --num_layers    int     Default is `2`.
     --sigma_b       float   Default is `0.0`.
     --sigma_w       float   Default is `1.0`.
-    --fraction      int     Default is `0` (no Nystrom approximation).
-Note: When `fraction<=0`, no Nystrom approximation. When `fraction>0`, each training point has a `1/fraction` probability to be chosen as landmark points.
+    --fraction      int     Default is `0` (no Nystrom approximation). When `fraction>0`, each training node has a `1/fraction` probability to be chosen as landmark nodes.
 
 ## GNN arguments
     --num_layers    int     Default is `2`.
@@ -52,7 +51,7 @@ The time result is also used in Figure 1 and Figure 2.
 ## Table 5: Performance comparison between GNNs and the corresponding GNNGPs
     sh table5.sh
 
-## Figure 3: Performance of GNNs and GNNGPs as depth L increases
+## Figure 3: Performance of GNNs and GNNGPs as depth increases
     sh figure3.sh
 
 ## Figure 4: Performance of GCNGP-X as number of landmark nodes increases

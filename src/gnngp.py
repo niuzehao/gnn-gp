@@ -26,7 +26,8 @@ class GNNGP(object):
             "GCN2": GCN with initial residual connections and identity mapping (GCNII) $X\gets ((1-\alpha)AX+\sigma X^{(0)})((1-\beta)I+\beta W)$.
             "GIN": graph isomorphism network $X\gets h(AX)$.
             "SAGE": graph sample and aggregate network $X\gets W_1X+W_2AX$.
-            "GGP": graph gaussian process.
+            "GGP": graph gaussian process kernel (for benchmark use).
+            "RBF": radial basis function kernel (for benchmark use).
         **params (Dict, optional): extra arguments to `initial` and `method`.
             For `initial`, supported arguments:
                 gamma (float): to specify the "rbf", "laplacian" and "sigmoid" kernel.
@@ -42,7 +43,7 @@ class GNNGP(object):
         y (Tensor[float] or Tensor[int]): prediction target.
             For int type, the task is a classification problem.
             For float type, the task is a regression problem.
-        A (torch.sparse_coo_tensor): graph adjacency matrix.
+        A (torch.sparse_coo_tensor): normalized graph adjacency matrix.
         mask (Dict[str, Tensor[bool]]): the training, validation, test and possibly landmark masks.
         computed (bool): indicator of availability of following attributes:
             C0 (Tensor[float]): the initial kernel of input features.
@@ -66,7 +67,7 @@ class GNNGP(object):
         """
         Set hyper parameters of the Gaussian Process Kernel.
 
-        See `GNNGP()` for details.
+        See `GNNGP` object for details.
         """
         if L is not None: self.L = L
         if sigma_b is not None: self.sigma_b = sigma_b

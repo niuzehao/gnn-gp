@@ -80,7 +80,9 @@ def _get_kernel(C0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float, method
     elif method == "SAGE":
         return _SAGE_kernel(C0, A, L, sigma_b, sigma_w)
     elif method == "GGP":
-        return _GGP_kernel(C0, A)
+        return A @ (A @ C0).T
+    elif method == "RBF":
+        return C0
     else:
         raise Exception("Unsupported layer type!")
 
@@ -98,7 +100,9 @@ def _get_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:float
     elif method == "SAGE":
         return _SAGE_kernel_Nystrom(Q0, A, L, sigma_b, sigma_w, mask)
     elif method == "GGP":
-        return _GGP_kernel_Nystrom(Q0, A, mask)
+        return A @ Q0
+    elif method == "RBF":
+        return Q0
     else:
         raise Exception("Unsupported layer type!")
 
@@ -203,15 +207,5 @@ def _SAGE_kernel_Nystrom(Q0:Tensor, A:Tensor, L:int, sigma_b:float, sigma_w:floa
         ExxT = _ExxT_ReLU_Nystrom(Q, mask)
         Q[:,:Na] = sigma_b * ExxT
         Q[:,Na:] = sigma_w * A @ ExxT
-    return Q
-
-
-def _GGP_kernel(C0:Tensor, A:Tensor) -> Tensor:
-    K = A @ (A @ C0).T
-    return K
-
-
-def _GGP_kernel_Nystrom(Q0:Tensor, A:Tensor, mask:Tensor) -> Tensor:
-    Q = A @ Q0
     return Q
 
