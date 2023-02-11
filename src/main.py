@@ -3,14 +3,12 @@ import torch
 from gnngp import GNNGP
 from datasets import load_data, transition_matrix
 
-from argparse import ArgumentParser
-from time import process_time
-
 def main():
+    from argparse import ArgumentParser
     parser = ArgumentParser(description="GNNGP arguments")
-    parser.add_argument("--data", required=True)
-    parser.add_argument("--method", required=True)
-    parser.add_argument("--action", required=True, choices=["gnn", "gp"])
+    parser.add_argument("data")
+    parser.add_argument("method")
+    parser.add_argument("action")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--runs", type=int, default=0)
     parser.add_argument("--verbose", action="store_true")
@@ -34,12 +32,14 @@ def main():
 
     args = parser.parse_args()
     args.Nystrom = args.fraction > 0
+    args.action = args.action.upper()
 
     dnames = ["Cora", "CiteSeer", "PubMed", "chameleon", "crocodile", "squirrel", "arxiv", "Reddit"]
     methods = ["GCN", "GCN2", "GIN", "SAGE", "GGP", "RBF"]
+    actions = ["GNN", "GP"]
 
     for name in dnames:
-        if name.lower().startswith(args.data.lower()):
+        if name.upper().startswith(args.data.upper()):
             print("Dataset: %s" % name)
             break
     else:
@@ -47,9 +47,10 @@ def main():
         raise Exception(message)
 
     for method in methods:
-        if method.lower() == args.method.lower():
+        if method.upper() == args.method.upper():
+            args.method = method
             message = method
-            if args.action == "gp":
+            if args.action == "GP":
                 if method not in ["GGP", "RBF"]: message += "-GP" 
                 if args.Nystrom: message += "-X"
             print("Method: %s" % message)
@@ -58,43 +59,52 @@ def main():
         message = "Unsupported method! Possible values: " + " ".join(methods)
         raise Exception(message)
 
-    if args.verbose:
-        print("Preprocessing: center=%s, scale=%s" % (args.center, args.scale))
-        if args.action == "gp":
-            print("GP arguments: num_layers=%d, sigma_b=%.2f, sigma_w=%.2f, Nystrom=%s, fraction=%d" % 
-                  (args.num_layers, args.sigma_b, args.sigma_w, args.Nystrom, args.fraction))
-        if args.action == "gnn":
-            print("GNN arguments: num_layers=%d, dim_hidden=%d, dropout=%.2f, lr=%.4f, epochs=%d, batch_size=%d" %
-                  (args.num_layers, args.dim_hidden, args.dropout, args.lr, args.epochs, args.batchnorm))
+    if args.action not in actions:
+        message = "Unsupported action! Possible values: " + " ".join(actions)
+        raise Exception(message)
 
-    transform = transition_matrix(normalization_in="sym" if method not in ["SAGE", "GGP"] else "row")
+    transform = transition_matrix(normalization="sym" if method not in ["SAGE", "GGP"] else "row")
     data = load_data(name, center=args.center, scale=args.scale, transform=transform)
     device = torch.device("cuda:%s" % args.device if args.device>=0 and torch.cuda.is_available() else "cpu")
     data = data.to(device)
-    print("Dataset loaded to %s" % device)
+    print("Dataset loaded to: %s" % device)
 
-    torch.manual_seed(123)
-    if args.Nystrom:
-        print("Using Nystrom. Randomly select %.0f percent of landmark points." % (100/args.fraction))
     if args.runs <= 0:
-        if args.action != "gnn" and args.fraction <= 1:
-            print("No randomness. Run only once.")
+        if args.action == "GP" and args.fraction <= 1:
+            print("Number of runs: 1 for deterministic results.")
             args.runs = 1
         else:
-            print("Number of runs not given. Set to 10 runs.")
+            print("Number of runs: 10 for random results.")
             args.runs = 10
+    else:
+        print("Number of runs: %d" % args.runs)
+    if args.action == "GP" and args.Nystrom:
+        print("Using Nystrom: 1/%d of training nodes chosen as landmark nodes." % args.fraction)
     print("----")
-    
+
+    if args.verbose:
+        print("Preprocessing: center=%s, scale=%s" % (args.center, args.scale))
+        if args.action == "GP":
+            print("GP arguments:  num_layers=%d, sigma_b=%.2f, sigma_w=%.2f, Nystrom=%s, fraction=%d" % 
+                  (args.num_layers, args.sigma_b, args.sigma_w, args.Nystrom, args.fraction))
+        if args.action == "GNN":
+            print("GNN arguments: num_layers=%d, dim_hidden=%d, dropout=%.2f, lr=%.4f, epochs=%d, batch_size=%d" %
+                  (args.num_layers, args.dim_hidden, args.dropout, args.lr, args.epochs, args.batch_size))
+        print("----")
+
+    torch.manual_seed(123)
+
     def result_format(result):
         return "time: %.4f, train: %.4f, val: %.4f, test: %.4f" % (result[0], result[1], result[2], result[3])
     
-    if args.action == "gp":
+    if args.action == "GP":
+        from time import process_time
         now = process_time()
         result_runs = torch.zeros((args.runs, 4))
         epsilon = torch.logspace(-3, 1, 101, device=device)
         params = {}
-        if method == "GCN2": params.update({"alpha":0.1, "theta":0.5})
-        if method == "GGP": params.update({"initial":"polynomial", "c":5.0, "d":3.0})
+        if method == "GCN2": params = {"alpha":0.1, "theta":0.5}
+        if method == "GGP": params = {"initial":"polynomial", "c":5.0, "d":3.0}
         model = GNNGP(data, device=device, Nystrom=args.Nystrom)
         for j in range(args.runs):
             if args.Nystrom:
@@ -120,7 +130,7 @@ def main():
             print("SD:     ", result_format(torch.std(result_runs, dim=0)))
         print("----")
 
-    if args.action == "gnn":
+    if args.action == "GNN":
         args.batchnorm = name in ["chameleon", "crocodile", "squirrel", "arxiv"]
         if args.batch_size <= 0:
             from main_gnn import main_gnn

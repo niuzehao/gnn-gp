@@ -1,29 +1,29 @@
 # ArXiv Dataset
-python3 src/main.py --data=arxi --method=gcn --action=gnn
-python3 src/main.py --data=arxi --method=gcn2 --action=gnn
-python3 src/main.py --data=arxi --method=gin --action=gnn
-python3 src/main.py --data=arxi --method=sage --action=gnn
-python3 src/main.py --data=arxi --method=gcn --action=gp --fraction=50 --center
-python3 src/main.py --data=arxi --method=gcn2 --action=gp --fraction=50 --center
-python3 src/main.py --data=arxi --method=gin --action=gp --fraction=50 --center
-python3 src/main.py --data=arxi --method=sage --action=gp --fraction=50 --center
+python3 src/main.py arxi gcn gnn
+python3 src/main.py arxi gcn2 gnn
+python3 src/main.py arxi gin gnn
+python3 src/main.py arxi sage gnn
+python3 src/main.py arxi gcn gp  --fraction=50 --center
+python3 src/main.py arxi gcn2 gp --fraction=50 --center
+python3 src/main.py arxi gin gp  --fraction=50 --center
+python3 src/main.py arxi sage gp --fraction=50 --center
 
 # PubMed Dataset
-python3 src/main.py --data=pubm --method=gcn --action=gnn
-python3 src/main.py --data=pubm --method=gcn2 --action=gnn
-python3 src/main.py --data=pubm --method=gin --action=gnn
-python3 src/main.py --data=pubm --method=sage --action=gnn
-python3 src/main.py --data=pubm --method=gcn --action=gp
-python3 src/main.py --data=pubm --method=gcn2 --action=gp
-python3 src/main.py --data=pubm --method=gin --action=gp
-python3 src/main.py --data=pubm --method=sage --action=gp
+python3 src/main.py pubm gcn gnn
+python3 src/main.py pubm gcn2 gnn
+python3 src/main.py pubm gin gnn
+python3 src/main.py pubm sage gnn
+python3 src/main.py pubm gcn gp
+python3 src/main.py pubm gcn2 gp
+python3 src/main.py pubm gin gp
+python3 src/main.py pubm sage gp
 
 # Reddit Dataset
-python3 src/main.py --data=redd --method=gcn --action=gp --fraction=50
-python3 src/main.py --data=redd --method=gcn2 --action=gp --fraction=50
-python3 src/main.py --data=redd --method=gin --action=gp --fraction=50
-python3 src/main.py --data=redd --method=sage --action=gp --fraction=50 --sigma_b=0.3162277
-python3 src/main.py --data=redd --method=gcn --action=gnn --epochs=10 --verbose --batch_size=10240
-python3 src/main.py --data=redd --method=gcn2 --action=gnn --epochs=10 --verbose --batch_size=10240
-python3 src/main.py --data=redd --method=gin --action=gnn --epochs=10 --verbose --batch_size=10240
-python3 src/main.py --data=redd --method=sage --action=gnn --epochs=10 --verbose --batch_size=10240
+python3 src/main.py redd gcn gp  --fraction=50
+python3 src/main.py redd gcn2 gp --fraction=50
+python3 src/main.py redd gin gp  --fraction=50
+python3 src/main.py redd sage gp --fraction=50 --sigma_b=0.316
+python3 src/main.py redd gcn gnn  --epochs=10 --batch_size=10240 --verbose
+python3 src/main.py redd gcn2 gnn --epochs=10 --batch_size=10240 --verbose
+python3 src/main.py redd gin gnn  --epochs=10 --batch_size=10240 --verbose
+python3 src/main.py redd sage gnn --epochs=10 --batch_size=10240 --verbose
