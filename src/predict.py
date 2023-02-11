@@ -14,7 +14,7 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float, Tensor]=1e-2)
         y (Tensor[float] or Tensor[int]): prediction target.
             For int type, the task is a classification problem.
             For float type, the task is a regression problem.
-        train_mask (Tensor[bool]): mask for training points.
+        train_mask (Tensor[bool]): mask for training nodes.
         nugget (float or Tensor[float]): the nugget used in posterior inference.
             (default: 1e-2 x mean diagonal element of K)
     """
@@ -33,7 +33,7 @@ def fit(K:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float, Tensor]=1e-2)
     return fitted[0] if len(nugget) == 1 else fitted
 
 
-def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nugget:Union[float, Tensor]=1e-2):
+def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, nugget:Union[float, Tensor]=1e-2):
     """
     Make predictions for a range of nugget values in one shot.
     For classification problems, the prediction target is classification probability.
@@ -44,12 +44,11 @@ def fit_Nystrom(Q:Tensor, y:Tensor, train_mask:Tensor, landmark_mask:Tensor, nug
         y (Tensor[float] or Tensor[int]): prediction target.
             For int type, the task is a classification problem.
             For float type, the task is a regression problem.
-        train_mask (Tensor[bool]): mask for training points.
-        landmark_mask (Tensor[bool]): mask for landmark points.
+        train_mask (Tensor[bool]): mask for training nodes.
         nugget (float or Tensor[float]): the nugget used in posterior inference.
             (default: 1e-2 x mean diagonal element of QQ^T)
     """
-    ma = landmark_mask; mb = train_mask
+    mb = train_mask
     if isinstance(nugget, float): nugget = torch.tensor([nugget])
     if y.dtype in [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]:
         yb = torch.nn.functional.one_hot(y[mb]).to(torch.float)
@@ -86,7 +85,6 @@ def result(fit:Tensor, y:Tensor, masks:Dict[str, Tensor]):
     for subset in masks:
         result[subset] = torch.zeros(num_nugget)
     for i in range(num_nugget):
-        loss = func(fit[i], y)
         for subset, mask in masks.items():
             result[subset][i] = func(fit[i][mask], y[mask])
     return result

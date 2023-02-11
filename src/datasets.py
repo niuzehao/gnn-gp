@@ -8,9 +8,21 @@ from torch_sparse import coalesce
 from torch_geometric.data import InMemoryDataset, download_url, extract_zip, Data
 
 class transition_matrix(BaseTransform):
-    def __init__(self, self_loop_weight=1, normalization_in="sym"):
+    """
+    Returns a transform that applies normalization on a given sparse matrix.
+
+    Args:
+        self_loop_weight (float): weight of the added self-loop. (default: `1`)
+        normalization (str): Normalization scheme. supported values:
+            "sym": symmetric normalization $\hat{A}=D^{-1/2}AD^{-1/2}$.
+            "col": column-wise normalization $\hat{A}=AD^{-1}$.
+            "row": row-wise normalization $\hat{A}=D^{-1}A$.
+            others: No normalization.
+            (default: "sym")
+    """
+    def __init__(self, self_loop_weight=1, normalization="sym"):
         self.self_loop_weight = self_loop_weight
-        self.normalization = normalization_in
+        self.normalization = normalization
     
     def __call__(self, data):
         N = data.num_nodes
@@ -48,7 +60,6 @@ class transition_matrix(BaseTransform):
             deg_inv[deg_inv == float("inf")] = 0
             edge_weight = edge_weight * deg_inv[row]
         else:
-            print("No normalization")
             pass
 
         data.edge_index = A
@@ -70,7 +81,7 @@ class Scale(BaseTransform):
         return data
 
 
-class RawWikipediaNetwork(InMemoryDataset):
+class WikipediaNetwork(InMemoryDataset):
     """
     The Wikipedia networks used in the
     `"Multi-Scale Attributed Node Embedding"<https://github.com/benedekrozemberczki/MUSAE>`.
@@ -80,16 +91,16 @@ class RawWikipediaNetwork(InMemoryDataset):
 
     Args:
         root (string): Root directory where the dataset should be saved.
-        name (string): The name of the dataset, possible values:
+        name (string): The name of the dataset, supported values:
             "Chameleon", "Squirrel", or "Crocodile".
         transform: A function/transform that takes in an
-            :obj:`torch_geometric.data.Data` object and returns a transformed
+            `torch_geometric.data.Data` object and returns a transformed
             version. The data object will be transformed before every access.
-            (default: :obj:`None`)
+            (default: `None`)
         pre_transform: A function/transform that takes in
-            an :obj:`torch_geometric.data.Data` object and returns a
+            an `torch_geometric.data.Data` object and returns a
             transformed version. The data object will be transformed before
-            being saved to disk. (default: :obj:`None`)
+            being saved to disk. (default: `None`)
     """
 
     raw_url = "https://raw.githubusercontent.com/benedekrozemberczki/MUSAE/master/input"
@@ -173,8 +184,7 @@ class OGB_arxiv(InMemoryDataset):
     Machine Learning on Graphs" <https://arxiv.org/abs/2005.00687>` paper.
     ogbn-arxiv is a paper citation network of arXiv papers.
     Each node is an ArXiv paper and each directed edge indicates that one paper cites another one.
-    Each paper comes with a 128-dimensional feature vector obtained by averaging the embeddings of words in its title and abstract.
-    The embeddings of individual words are computed by running the WORD2VEC model.
+    Node features are 128-dimensional vector obtained by averaging the WORD2VEC embeddings of words in its title and abstract.
     The task is to predict the 40 subject areas of ARXIV CS papers.
 
     Args:
@@ -182,11 +192,11 @@ class OGB_arxiv(InMemoryDataset):
         transform (callable, optional): A function/transform that takes in an
             :obj:`torch_geometric.data.HeteroData` object and returns a
             transformed version. The data object will be transformed before
-            every access. (default: :obj:`None`)
+            every access. (default: `None`)
         pre_transform (callable, optional): A function/transform that takes in
             an :obj:`torch_geometric.data.HeteroData` object and returns a
             transformed version. The data object will be transformed before
-            being saved to disk. (default: :obj:`None`)
+            being saved to disk. (default: `None`)
     """
 
     url = "http://snap.stanford.edu/ogb/data/nodeproppred/arxiv.zip"
@@ -263,10 +273,10 @@ class OGB_arxiv(InMemoryDataset):
 def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
               center=False, scale=False, transform=None):
     """
-    Load specific datasets. Automatic downloads may occur upon first use.
+    Load dataset and save to disk. Automatic downloads may occur upon first use.
 
     Args:
-        name (str): name for the dataset. possible values:
+        name (str): name for the dataset. supported values:
             "Cora", "CiteSeer", "PubMed": Planetoid dataset.
             "chameleon", "crocodile", "squirrel": Wikipedia dataset.
             "arxiv": OGBN dataset.
@@ -274,7 +284,8 @@ def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
         path (str): directory where the dataset should be saved.
         center (bool): center each column to have mean 0.
         scale (bool): scale each column to have standard deviation 1.
-        transform (`torch_geometric.transforms`): to be applied in the end.
+        transform (callable, optional): a function/transform to a graph data object.
+            The data object will be transformed after centering and scaling.
     """
     if name in ["Cora", "CiteSeer", "PubMed"]:
         from torch_geometric.datasets import Planetoid
@@ -282,7 +293,7 @@ def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
         data = dataset[0]
         data.num_classes = dataset.num_classes
     elif name in ["chameleon", "crocodile", "squirrel"]:
-        dataset = RawWikipediaNetwork(path, name)
+        dataset = WikipediaNetwork(path, name)
         data = dataset[0]
     elif name == "arxiv":
         dataset = OGB_arxiv(path)
@@ -301,7 +312,10 @@ def load_data(name, path=osp.join(osp.abspath(__file__), "..", "..", "data"),
 
 def get_data(data):
     """
-    Return info from a dataset.
+    Return attributes from a homogeneous graph.
+
+    Args:
+        data (torch_geometric.data.data): a graph data object.
     """
     X = data.x
     y = data.y
