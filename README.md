@@ -5,35 +5,35 @@ This repository contains pytorch open source implementation of our ICLR2023 pape
 
 The code performs Gaussian Process (GP) inference by using kernels derived from the infinite-width limit of the Graph Neural Networks (GNNs). The inference is scalable to large graph datasets through recursive Nystrom approximation of each layer.
 
-# Examples
+## Examples
 
 The `notebooks/` directory contains interactive notebooks to demo the usage and features of GNNGP.
 
-# Usage
+## Usage
 
 ![Example](example.svg)
 
 The `src/main.py` runs automatic experiments with following command line arguments:
 
-## Model options
-    --data      str     Possible values: Cora, CiteSeer, PubMed, chameleon, crocodile, squirrel, arxiv, Reddit.
-    --method    str     Possible values: GCN, GCN2, GIN, SAGE, GGP, RBF (last two for benchmark use).
-    --action    str     Possible values: gnn, gp.
+### Model options
+    data        str     Possible values: Cora, CiteSeer, PubMed, chameleon, crocodile, squirrel, arxiv, Reddit (and their prefix).
+    method      str     Possible values: GCN, GCN2, GIN, SAGE, GGP, RBF (last two for benchmark use).
+    action      str     Possible values: GNN, GP.
     --device    int     Default is `0` (GPU index 0). To run CPU tests, set this to `-1`.
     --runs      int     Default is `10` for random results and `1` for deterministic results.
     --verbose   bool    Default is `False`.
 
-## Feature preprocessing
+### Feature preprocessing
     --center    bool    Default is `False`.
     --scale     bool    Default is `False`.
 
-## GP arguments
+### GP arguments
     --num_layers    int     Default is `2`.
     --sigma_b       float   Default is `0.0`.
     --sigma_w       float   Default is `1.0`.
     --fraction      int     Default is `0` (no Nystrom approximation). When `fraction>0`, each training node has a `1/fraction` probability to be chosen as landmark nodes.
 
-## GNN arguments
+### GNN arguments
     --num_layers    int     Default is `2`.
     --dim_hidden    int     Default is `256`.
     --dropout       float   Default is `0.5`.
@@ -41,23 +41,23 @@ The `src/main.py` runs automatic experiments with following command line argumen
     --epochs        int     Default is `100`.
     --batch_size    int     Default is `0` (no mini-batching).
 
-# Reproducing results
+## Reproducing results
 To reproduce results reported by the paper, use following shell scripts:
 
-## Table 4: Performance of GCNGP, in comparison with GCN and GP with typical kernels
+### Table 4: Performance of GCNGP, in comparison with GCN and GP with typical kernels
     sh table4.sh
 The time result is also used in Figure 1 and Figure 2.
 
-## Table 5: Performance comparison between GNNs and the corresponding GNNGPs
+### Table 5: Performance comparison between GNNs and the corresponding GNNGPs
     sh table5.sh
 
-## Figure 3: Performance of GNNs and GNNGPs as depth increases
+### Figure 3: Performance of GNNs and GNNGPs as depth increases
     sh figure3.sh
 
-## Figure 4: Performance of GCNGP-X as number of landmark nodes increases
+### Figure 4: Performance of GCNGP-X as number of landmark nodes increases
     sh figure4.sh
 
-# Requirements
+## Requirements
 The code is implemented in
 
     Python 3.10.4 as distributed with Ubuntu 22.04 LTS
@@ -65,7 +65,11 @@ The code is implemented in
     PyTorch Geometric 2.1.0
     CUDA 11.3
 
-# Citation
+All experiments reported by the paper are conducted on 
+
+    Nvidia Quadro GV100 GPU with 32GB of HBM2 memory
+
+## Citation
     @inproceedings{niu2023graph,
         title={Graph Neural Network-Inspired Kernels for {Gaussian} Processes in Semi-Supervised Learning},
         author={Zehao Niu and Mihai Anitescu and Jie Chen},
@@ -74,5 +78,5 @@ The code is implemented in
         url={https://openreview.net/forum?id=flap0Bo6TK_}
     }
 
-# License
+## License
 Apache License Version 2.0 (APLv2).
